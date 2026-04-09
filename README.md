@@ -274,4 +274,4 @@ Additional guardrails that apply regardless of strategy:
 - [First video — Connect Claude to TradingView](https://youtu.be/vIX6ztULs4U)
 - [TradingView MCP repo (first video)](https://github.com/jackson-video-resources/tradingview-mcp-jackson)
 - [Apify](https://apify.com?fpr=3ly3yd) — search actor store for "YouTube Transcript Scraper"
-- [BitGet — $1,000 bonus on first deposit](https://partner.bitget.com/bg/LewisJackson)
+- [BitGet — $1,000 bonus on first deposit]([https://partner.bitget.com/bg/LewisJackson](https://bonus.bitget.com/LewisJackson))
