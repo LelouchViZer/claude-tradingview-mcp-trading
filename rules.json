@@ -1,50 +1,181 @@
 {
-  "watchlist": ["BTCUSDT"],
-  "default_timeframe": "1m",
+  "trader": "Sihak Khun",
+  "strategy_name": "Momentum + FVG Hybrid (Strategy 2)",
+  "strategy_description": "Trend-following momentum strategy using 20 EMA / 50 EMA for direction and Fair Value Gaps (FVG) for precision entry. FVG is the WHERE. The trend is the WHY. Never trade an FVG against the higher-timeframe trend.",
 
-  "strategy": {
-    "name": "VWAP + RSI(3) + EMA(8) Scalping Strategy",
-    "sources": ["Lewis Jackson"],
-    "description": "Three indicators, each doing a different job. EMA(8) for trend direction, VWAP for session bias, RSI(3) for entry timing. All three must align before a trade fires."
+  "watchlist": ["BTCUSD", "ETHUSD", "SOLUSD", "XAUUSD", "BNBUSD", "XRPUSD", "ADAUSD"],
+
+  "timeframes": {
+    "trend_identification": "Daily or 4H (one timeframe ABOVE entry TF)",
+    "entry_execution": "4H or 1H",
+    "minimum_fvg_timeframe": "15m (never use FVGs on 1m or 5m — too noisy)"
   },
 
-  "indicators": {
-    "ema_8": "Trend direction. Price above EMA(8) = bullish momentum. Below = bearish.",
-    "vwap": "Session bias. Price above VWAP = buyers in control. Below = sellers. Resets at midnight UTC.",
-    "rsi_3": "Entry timing. RSI on 3 candles only — extremely sensitive. Below 30 in an uptrend = snap-back setup. Above 70 in a downtrend = reversal likely."
+  "indicators_required": [
+    "20 EMA (Exponential Moving Average)",
+    "50 EMA (Exponential Moving Average)",
+    "Volume (optional, for crossover confirmation)"
+  ],
+
+  "trend_identification": {
+    "method": "Four-Step Trend Checklist — ALL four must agree before trading",
+    "steps": [
+      "1. Price structure: Is price making Higher Highs + Higher Lows (uptrend) or Lower Highs + Lower Lows (downtrend)?",
+      "2. 20 EMA slope: Is it pointing upward (bullish) or downward (bearish)?",
+      "3. 50 EMA slope: Is it confirming the 20 EMA direction?",
+      "4. Price position: Is price trading ABOVE both EMAs (bullish) or BELOW both (bearish)?"
+    ],
+    "rule": "If MAs and price structure DISAGREE — do NOT trade. Market is transitioning or ranging."
   },
 
   "bias_criteria": {
-    "bullish": ["Price is above VWAP", "Price is above EMA(8)"],
-    "bearish": ["Price is below VWAP", "Price is below EMA(8)"]
-  },
-
-  "entry_rules": {
-    "long": [
-      "Price is above VWAP — buyers in control for the session",
-      "Price is above EMA(8) — uptrend confirmed",
-      "RSI(3) has dropped below 30 — short-term pullback in an uptrend, snap-back likely"
+    "bullish": [
+      "20 EMA is ABOVE 50 EMA (Golden Cross confirmed)",
+      "Both EMAs are sloping upward",
+      "Price is trading above both EMAs",
+      "Price structure shows consecutive Higher Highs and Higher Lows (HH + HL)",
+      "BTC daily trend is bullish (use as leading indicator for ETH/alts)"
     ],
-    "short": [
-      "Price is below VWAP — sellers in control",
-      "Price is below EMA(8) — downtrend confirmed",
-      "RSI(3) has spiked above 70 — overbought in a downtrend, reversal likely"
+    "bearish": [
+      "20 EMA is BELOW 50 EMA (Death Cross confirmed)",
+      "Both EMAs are sloping downward",
+      "Price is trading below both EMAs",
+      "Price structure shows consecutive Lower Highs and Lower Lows (LH + LL)"
+    ],
+    "neutral_no_trade": [
+      "MAs are flat, intertwined, or crossing back and forth",
+      "Price is oscillating between horizontal support and resistance (range)",
+      "20 EMA and price structure are disagreeing in direction",
+      "Market is transitioning between trend phases"
     ]
   },
 
-  "exit_rules": [
-    "Exit when RSI(3) crosses back above 50 (for longs) or below 50 (for shorts)",
-    "Hard stop: 0.3% below entry for longs, 0.3% above entry for shorts",
-    "Take profit at next VWAP touch or EMA(8) cross"
-  ],
+  "entry_rules": {
+    "strategy": "Momentum + FVG Hybrid — 6-step process",
+    "step_1_trend": "Confirm higher-timeframe trend using Four-Step Checklist. LONG bias only in uptrend. SHORT bias only in downtrend.",
+    "step_2_pullback": {
+      "description": "Wait for a structured, controlled pullback AGAINST the trend direction toward the 20 EMA or 50 EMA zone",
+      "ideal_depth_percent": "38% to 62% of the most recent impulse wave",
+      "pullback_depth_guide": {
+        "under_38pct": "Very strong trend — high-probability entry zone",
+        "38_to_62pct": "Normal healthy pullback — standard entry zone, highest frequency",
+        "62_to_786pct": "Trend weakening — trade only with extra confirmation",
+        "over_786pct": "Possible trend reversal — DO NOT TRADE, reassess trend"
+      },
+      "note": "Do NOT anticipate the end of the pullback. Wait for FVG confirmation in step 3."
+    },
+    "step_3_fvg_identification": {
+      "description": "Look for a valid FVG within the pullback zone on the entry timeframe",
+      "bullish_fvg": {
+        "definition": "3-candle structure: Large bullish impulse candle (C2) between C1 and C3",
+        "zone": "High of Candle 1 → Low of Candle 3 (Low of C3 must be ABOVE High of C1)",
+        "requirement": "Must appear DURING or just AFTER the pullback — not during the original impulse",
+        "entry": "Enter when price pulls back INTO this zone"
+      },
+      "bearish_fvg": {
+        "definition": "3-candle structure: Large bearish impulse candle (C2) between C1 and C3",
+        "zone": "Low of Candle 1 → High of Candle 3 (High of C3 must be BELOW Low of C1)",
+        "entry": "Enter when price retraces UP into this zone"
+      },
+      "confirmation_candle": "Wait for a bullish close OFF the lower boundary of a bullish FVG before entering (reduces false entries)"
+    },
+    "step_4_stop_loss": {
+      "long": "Place BELOW the low of the entire FVG zone",
+      "short": "Place ABOVE the high of the entire FVG zone",
+      "buffer": "Add 0.5% to 1.0% beyond the FVG boundary to avoid noise stop-outs",
+      "formula": "Stop Loss = FVG Low − (FVG Low × 0.005) for longs",
+      "rule": "NEVER place stop loss INSIDE the FVG zone. NEVER move stop loss away from profit once set."
+    },
+    "step_5_take_profit": {
+      "minimum_rr": "2:1 risk-to-reward ratio (non-negotiable minimum)",
+      "preferred_target": "Most recent swing high (for longs) or swing low (for shorts) before the pullback began",
+      "formula": "Take Profit = Entry + (2 × (Entry − Stop Loss))",
+      "scaling": "Optional: take 50% profit at 2:1 target, trail stop to breakeven for the remainder",
+      "breakeven_rule": "Trail stop to breakeven once price has moved 1:1 in your favor"
+    },
+    "step_6_execute": {
+      "entry_method": "Limit order at FVG zone boundary, or market order on confirmation candle close",
+      "after_entry": [
+        "Immediately set stop loss on exchange — before anything else",
+        "Set take profit limit order",
+        "Set alerts at stop loss, take profit, and midpoint",
+        "Step away — do not watch every candle"
+      ]
+    }
+  },
 
-  "risk_rules": [
-    "Risk maximum 1% of portfolio per trade",
-    "Maximum trade size capped by MAX_TRADE_SIZE_USD in .env",
-    "Maximum trades per day capped by MAX_TRADES_PER_DAY in .env",
-    "Do not trade if price is more than 1.5% away from VWAP — overextended",
-    "Paper trade first — validate this strategy on your specific asset before going live"
-  ],
+  "risk_management": {
+    "max_risk_per_trade_pct": 1.0,
+    "position_size_formula": "Position Size = (Account Balance × Risk%) / Stop Loss Distance%",
+    "stop_loss_distance_formula": "|Entry Price − Stop Loss Price| / Entry Price × 100",
+    "rr_minimum": "2:1 — never take a trade below this",
+    "asset_risk_guide": {
+      "BTCUSD": "1% risk — moderate volatility, high liquidity",
+      "ETHUSD": "1% risk — similar to BTC, slightly higher volatility",
+      "SOLUSD": "0.5%–0.75% risk — high volatility, widen stops",
+      "XAUUSD": "1%–1.5% risk — lower volatility, predictable trends",
+      "BNBUSD": "0.5% risk — follows BTC, exchange risk factor",
+      "XRPUSD": "0.5% risk — regulatory news risk, sudden moves",
+      "ADAUSD": "0.25%–0.5% risk — lower liquidity, wide stops needed"
+    },
+    "daily_trade_limit": "Maximum 1–3 trades per day",
+    "news_rule": "No trading within 2 hours of major news events (Fed announcements, CPI data, earnings)",
+    "losing_streak_rule": "After 2 consecutive losses in a day, stop trading for the rest of that session"
+  },
 
-  "notes": "Scalping strategy — designed for 1m to 5m timeframes. RSI(3) is intentionally fast and sensitive. Do not apply to higher timeframes."
+  "fvg_rules_and_warnings": {
+    "rule_1": "FVG is an ENTRY TOOL, not a signal. The trend is WHY you trade. The FVG is WHERE you enter.",
+    "rule_2": "NEVER trade a bullish FVG in a downtrend. NEVER trade a bearish FVG in an uptrend.",
+    "rule_3": "Wait for a confirmation candle close within the FVG zone — do not enter the moment price touches it.",
+    "rule_4": "Only use FRESH FVGs formed during the current pullback. Ignore FVGs older than a few days.",
+    "rule_5": "Stop loss must go BELOW the entire FVG zone — never inside it.",
+    "rule_6": "Minimum timeframe for valid FVG: 15 minutes. Prefer 1H and 4H for swing trades.",
+    "rule_7": "Larger FVG zone = more aggressive institutional order = higher fill probability.",
+    "rule_8": "An FVG in the middle of a strong trend opposite to your bias is NOT a trade signal."
+  },
+
+  "daily_routine": {
+    "pre_market_minutes": "30–45 minutes each session",
+    "part_A_market_context": [
+      "Check BTC trend on Daily chart — above or below 20/50 EMA?",
+      "Note any major news events today (Fed, CPI, earnings)",
+      "Review overnight price action for significant moves",
+      "Identify market phase: trending, range-bound, or transitioning"
+    ],
+    "part_B_asset_scan": [
+      "Open watchlist: BTC, ETH, SOL, Gold, tracked alts",
+      "For each asset: run Four-Step Trend Checklist on Daily and 4H",
+      "Mark assets in clear trends as 'Active Watch'",
+      "For Active Watch assets: identify and draw current FVG zones on 4H",
+      "Mark ranging or transitioning assets as 'No Trade' for the session"
+    ],
+    "part_C_trade_plan": [
+      "Write down which assets to trade and in which direction",
+      "Set price alerts at FVG zone levels",
+      "Pre-calculate position sizes using risk formulas",
+      "Confirm max trade count for the session (1–3 maximum)"
+    ],
+    "post_trade_review": [
+      "Record in trading journal: entry, exit, P&L, context",
+      "Did I follow my rules exactly? If not, where did I deviate?",
+      "Was the setup A+, B, or C quality?",
+      "What can I learn from this trade regardless of outcome?"
+    ]
+  },
+
+  "quick_reference_checklist": {
+    "before_every_trade": [
+      "Higher TF trend confirmed via MA alignment AND price structure",
+      "Pullback depth is 38%–62% of most recent impulse wave",
+      "Valid 3-candle FVG structure visible on entry timeframe",
+      "FVG direction matches trend — bullish FVG in uptrend only",
+      "Stop loss placed BELOW entire FVG zone with buffer",
+      "Position size calculated — max 1% account risk",
+      "R:R ratio is minimum 2:1",
+      "No major news event in next 2 hours",
+      "Under daily trade maximum (1–3)"
+    ]
+  },
+
+  "notes": "Primary strategy is Momentum + FVG Hybrid (Strategy 2 from manual). Use BTC daily trend as the leading indicator for ETH and altcoin direction. ETH moves 1.2x–1.5x BTC's percentage moves. SOL requires wider stops and smaller size due to 5%–15% daily moves. Gold forms the cleanest FVGs due to institutional involvement. Avoid overtrading — 5 quality setups at 2:1 R:R beats 25 mediocre ones every time. Execute the process. The profits follow."
 }

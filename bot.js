@@ -504,9 +504,13 @@ async function run() {
   );
   console.log("═══════════════════════════════════════════════════════════");
 
-  // Load strategy
-  const rules = JSON.parse(readFileSync("rules.json", "utf8"));
-  console.log(`\nStrategy: ${rules.strategy.name}`);
+  // Load strategy — from env var (cloud) or file (local)
+  const rulesRaw = process.env.RULES_JSON
+    ? process.env.RULES_JSON
+    : readFileSync("rules.json", "utf8");
+  const rules = JSON.parse(rulesRaw);
+  const strategyName = rules.strategy_name || (rules.strategy && rules.strategy.name) || "Custom Strategy";
+  console.log(`\nStrategy: ${strategyName}`);
   console.log(`Symbol: ${CONFIG.symbol} | Timeframe: ${CONFIG.timeframe}`);
 
   // Load log and check daily limits
