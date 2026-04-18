@@ -75,23 +75,26 @@ const CONFIG = {
   symbols: (process.env.SYMBOLS || process.env.SYMBOL || "BTCUSDT").split(",").map(s => s.trim()),
   timeframe: process.env.TIMEFRAME || "4H",
   portfolioValue: parseFloat(process.env.PORTFOLIO_VALUE_USD || "1000"),
-  maxTradeSizeUSD: parseFloat(process.env.MAX_TRADE_SIZE_USD || "100"),
+  maxTradeSizeUSD: parseFloat(process.env.MAX_TRADE_SIZE_USD || "12.5"),
   maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY || "3"),
+  maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || "2"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
   stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),
   rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
+  // Early exit: cut trade when this % of SL distance is reached AND momentum confirms
+  earlyExitSlPct: parseFloat(process.env.EARLY_EXIT_SL_PCT || "0.65"),
   bitget: {
     apiKey: process.env.BITGET_API_KEY,
     secretKey: process.env.BITGET_SECRET_KEY,
     passphrase: process.env.BITGET_PASSPHRASE,
     baseUrl: process.env.BITGET_BASE_URL || "https://api.bitget.com",
   },
-  // Per-symbol risk sizing based on strategy rules
+  // All symbols get equal $12.5 sizing — 1.0 = full size
   symbolRiskPct: {
     "BTCUSDT":  1.0,
     "ETHUSDT":  1.0,
-    "SOLUSDT":  0.5,
+    "SOLUSDT":  1.0,
     "XAUTUSDT": 1.0,
   },
 };
@@ -219,6 +222,160 @@ function countTodaysTrades(log) {
   return log.trades.filter(
     (t) => t.timestamp.startsWith(today) && t.orderPlaced,
   ).length;
+}
+
+function countOpenTrades(log) {
+  return log.trades.filter(t => t.orderPlaced && !t.outcome).length;
+}
+
+// ─── Early Exit System ───────────────────────────────────────────────────────
+//
+//  Runs on every hourly scan. For each open trade it checks:
+//  1. Price crossed back over VWAP against the trade → setup invalidated
+//  2. Price crossed back over EMA(8) against the trade → momentum gone
+//  3. Trade is 65%+ of the way to the stop loss AND RSI confirms no recovery
+//
+//  Any one of these triggers an early exit: closes at current price instead of
+//  waiting to get stopped out, saving up to 35% of the risk amount.
+
+async function checkEarlyExits(log, learning, currentPrices) {
+  const openTrades = log.trades.filter(t => t.orderPlaced && !t.outcome);
+  if (openTrades.length === 0) return false;
+
+  let updated = false;
+
+  for (const trade of openTrades) {
+    const currentPrice = currentPrices[trade.symbol];
+    if (!currentPrice || !trade.stopLoss || !trade.takeProfit) continue;
+    // Infer side if missing (old log entries): TP above entry = long, below = short
+    const tradeSide = trade.side || (trade.takeProfit > trade.price ? "buy" : "sell");
+
+    try {
+      const candles = await fetchCandles(trade.symbol, CONFIG.timeframe, 500);
+      const closes  = candles.map(c => c.close);
+      const ema8    = calcEMA(closes, 8);
+      const vwap    = calcVWAP(candles);
+      const rsi3    = calcRSI(closes, 3);
+
+      if (vwap === null || rsi3 === null || isNaN(rsi3)) continue;
+
+      let shouldExit = false;
+      let exitReason = "";
+
+      const totalRange = Math.abs(trade.price - trade.stopLoss);
+      const toSL       = Math.abs(currentPrice - trade.stopLoss);
+      const slProgress = totalRange > 0 ? (totalRange - toSL) / totalRange : 0;
+
+      if (tradeSide === "buy") {
+        if (currentPrice < vwap && currentPrice < ema8) {
+          shouldExit = true;
+          exitReason = "Setup invalidated — price fell below both VWAP and EMA(8)";
+        } else if (currentPrice < vwap) {
+          shouldExit = true;
+          exitReason = "Momentum fading — price dropped back below VWAP";
+        } else if (slProgress >= CONFIG.earlyExitSlPct && rsi3 < 30) {
+          shouldExit = true;
+          exitReason = `${(slProgress * 100).toFixed(0)}% of the way to SL, RSI(3)=${rsi3.toFixed(1)} — no recovery signal`;
+        }
+      } else if (tradeSide === "sell") {
+        if (currentPrice > vwap && currentPrice > ema8) {
+          shouldExit = true;
+          exitReason = "Setup invalidated — price rose above both VWAP and EMA(8)";
+        } else if (currentPrice > vwap) {
+          shouldExit = true;
+          exitReason = "Momentum fading — price bounced back above VWAP";
+        } else if (slProgress >= CONFIG.earlyExitSlPct && rsi3 > 70) {
+          shouldExit = true;
+          exitReason = `${(slProgress * 100).toFixed(0)}% of the way to SL, RSI(3)=${rsi3.toFixed(1)} — no reversal signal`;
+        }
+      }
+
+      if (shouldExit) {
+        const pnlPct = tradeSide === "buy"
+          ? ((currentPrice - trade.price) / trade.price * 100)
+          : ((trade.price - currentPrice) / trade.price * 100);
+
+        const isProfit  = pnlPct >= 0;
+        trade.outcome   = isProfit ? "EARLY_EXIT_PROFIT" : "EARLY_EXIT_LOSS";
+        trade.exitPrice = currentPrice;
+        trade.closedAt  = new Date().toISOString();
+        trade.exitReason = exitReason;
+        trade.pnlPct    = pnlPct.toFixed(2);
+
+        // Update learning
+        learning.totalTrades++;
+        if (isProfit) learning.wins++; else learning.losses++;
+        learning.winRate = parseFloat((learning.wins / learning.totalTrades * 100).toFixed(1));
+
+        if (!learning.symbolStats[trade.symbol])
+          learning.symbolStats[trade.symbol] = { wins: 0, losses: 0, winRate: 0 };
+        const sym = learning.symbolStats[trade.symbol];
+        if (isProfit) sym.wins++; else sym.losses++;
+        sym.winRate = parseFloat((sym.wins / (sym.wins + sym.losses) * 100).toFixed(1));
+
+        const emoji = isProfit ? "💰" : "✂️";
+        console.log(`\n  ${emoji} EARLY EXIT — ${trade.symbol} (${trade.outcome})`);
+        console.log(`     Reason:  ${exitReason}`);
+        console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
+        console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
+
+        // For live mode: place a market close order on BitGet
+        if (!CONFIG.paperTrading) {
+          try {
+            await closePosition(trade.symbol, tradeSide, trade.quantity || (trade.tradeSize / trade.price));
+          } catch (e) {
+            console.log(`  ⚠️  Could not close live position: ${e.message}`);
+          }
+        }
+
+        updated = true;
+      }
+    } catch (err) {
+      // Don't crash — just skip this trade's early exit check
+    }
+
+    await new Promise(r => setTimeout(r, 600));
+  }
+
+  return updated;
+}
+
+// Close an open position on BitGet (live mode only)
+async function closePosition(symbol, originalSide, quantity) {
+  const closeSide = originalSide === "buy" ? "sell" : "buy";
+  const timestamp = Date.now().toString();
+  const path = CONFIG.tradeMode === "futures"
+    ? "/api/v2/mix/order/placeOrder"
+    : "/api/v2/spot/trade/placeOrder";
+
+  const body = JSON.stringify({
+    symbol,
+    side: closeSide,
+    orderType: "market",
+    quantity: parseFloat(quantity).toFixed(6),
+    ...(CONFIG.tradeMode === "futures" && {
+      productType: "USDT-FUTURES",
+      marginMode: "isolated",
+      marginCoin: "USDT",
+      reduceOnly: "YES",
+    }),
+  });
+
+  const signature = signBitGet(timestamp, "POST", path, body);
+  const res = await fetch(`${CONFIG.bitget.baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "ACCESS-KEY": CONFIG.bitget.apiKey,
+      "ACCESS-SIGN": signature,
+      "ACCESS-TIMESTAMP": timestamp,
+      "ACCESS-PASSPHRASE": CONFIG.bitget.passphrase,
+    },
+    body,
+  });
+  const data = await res.json();
+  if (data.code !== "00000") throw new Error(`Close order failed: ${data.msg}`);
+  return data;
 }
 
 // ─── Market Data (Binance public API — free, no auth) ───────────────────────
@@ -746,9 +903,16 @@ async function analyseSymbol(symbol, rules, log, learning) {
   console.log(`  📊 ${symbol}`);
   console.log(`${"─".repeat(57)}\n`);
 
+  // Concurrent trade limit — protect capital
+  const openCount = countOpenTrades(log);
+  if (openCount >= CONFIG.maxConcurrentTrades) {
+    console.log(`\n  ⏸️  ${openCount}/${CONFIG.maxConcurrentTrades} trades already open — skipping ${symbol}`);
+    return null;
+  }
+
   // Per-symbol risk sizing
   // symbolRiskPct acts as a multiplier on MAX_TRADE_SIZE_USD:
-  //   1.0 → full size (e.g. $8), 0.5 → half size (e.g. $4)
+  //   1.0 → full size ($12.5), 0.5 → half size ($6.25)
   const riskMultiplier = CONFIG.symbolRiskPct[symbol] ?? 1.0;
   const tradeSize = parseFloat((CONFIG.maxTradeSizeUSD * riskMultiplier).toFixed(2));
 
@@ -836,6 +1000,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.stopLoss = stopLoss;
         logEntry.takeProfit = takeProfit;
         logEntry.side = side;
+        logEntry.quantity = tradeSize / price;
       } else {
         console.log(`\n  🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
         try {
@@ -845,6 +1010,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
           logEntry.stopLoss = order.stopLoss;
           logEntry.takeProfit = order.takeProfit;
           logEntry.side = side;
+          logEntry.quantity = tradeSize / price;
           console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
           console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
         } catch (err) {
@@ -896,10 +1062,16 @@ async function run() {
       currentPrices[symbol] = parseFloat(data.price);
     } catch { /* ignore */ }
   }
+  // Check SL/TP hits
   const outcomesUpdated = updateTradeOutcomes(log, learning, currentPrices);
-  if (outcomesUpdated) {
+
+  // Check early exit conditions on all open trades
+  const earlyExitUpdated = await checkEarlyExits(log, learning, currentPrices);
+
+  if (outcomesUpdated || earlyExitUpdated) {
     saveLog(log);
     saveLearning(learning);
+    if (earlyExitUpdated) adaptThresholds(log, learning);
   }
 
   const withinLimits = checkTradeLimits(log);
