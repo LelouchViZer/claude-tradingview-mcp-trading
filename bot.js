@@ -169,6 +169,7 @@ function updateTradeOutcomes(log, learning, currentPrices) {
 
       console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
       console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
+      writeExitCsv(trade);
       updated = true;
     }
   }
@@ -318,6 +319,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         console.log(`     Reason:  ${exitReason}`);
         console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
+        writeExitCsv(trade);
 
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
@@ -719,91 +721,80 @@ const CSV_HEADERS = [
   "Time (UTC)",
   "Exchange",
   "Symbol",
-  "Side",
+  "Action",
   "Quantity",
   "Price",
   "Total USD",
-  "Fee (est.)",
-  "Net Amount",
+  "P&L USD",
+  "P&L %",
   "Order ID",
   "Mode",
   "Notes",
 ].join(",");
 
+// Write a trade OPEN row
 function writeTradeCsv(logEntry) {
-  const now = new Date(logEntry.timestamp);
+  const now  = new Date(logEntry.timestamp);
   const date = now.toISOString().slice(0, 10);
   const time = now.toISOString().slice(11, 19);
 
-  let side = "";
-  let quantity = "";
-  let totalUSD = "";
-  let fee = "";
-  let netAmount = "";
-  let orderId = "";
-  let mode = "";
-  let notes = "";
+  let action = "", quantity = "", totalUSD = "", pnlUSD = "", pnlPct = "", orderId = "", mode = "", notes = "";
 
   if (!logEntry.allPass) {
-    const failed = logEntry.conditions
-      .filter((c) => !c.pass)
-      .map((c) => c.label)
-      .join("; ");
-    mode = "BLOCKED";
-    orderId = "BLOCKED";
+    const failed = (logEntry.conditions || []).filter(c => !c.pass).map(c => c.label).join("; ");
+    action = "BLOCKED"; orderId = "BLOCKED"; mode = "BLOCKED";
     notes = `Failed: ${failed}`;
-  } else if (logEntry.paperTrading) {
-    side = "BUY";
-    quantity = (logEntry.tradeSize / logEntry.price).toFixed(6);
-    totalUSD = logEntry.tradeSize.toFixed(2);
-    fee = (logEntry.tradeSize * 0.001).toFixed(4);
-    netAmount = (logEntry.tradeSize - parseFloat(fee)).toFixed(2);
-    orderId = logEntry.orderId || "";
-    mode = "PAPER";
-    notes = "All conditions met";
   } else {
-    side = "BUY";
-    quantity = (logEntry.tradeSize / logEntry.price).toFixed(6);
-    totalUSD = logEntry.tradeSize.toFixed(2);
-    fee = (logEntry.tradeSize * 0.001).toFixed(4);
-    netAmount = (logEntry.tradeSize - parseFloat(fee)).toFixed(2);
-    orderId = logEntry.orderId || "";
-    mode = "LIVE";
-    notes = logEntry.error ? `Error: ${logEntry.error}` : "All conditions met";
+    const side = logEntry.side || "buy";
+    action   = side.toUpperCase() === "BUY" ? "OPEN LONG" : "OPEN SHORT";
+    quantity = ((logEntry.tradeSize || 0) / logEntry.price).toFixed(6);
+    totalUSD = (logEntry.tradeSize || 0).toFixed(2);
+    orderId  = logEntry.orderId || "";
+    mode     = logEntry.paperTrading ? "PAPER" : "LIVE";
+    notes    = `SL $${logEntry.stopLoss || "-"} | TP $${logEntry.takeProfit || "-"}`;
   }
 
-  const row = [
-    date,
-    time,
-    "BitGet",
-    logEntry.symbol,
-    side,
-    quantity,
-    logEntry.price.toFixed(2),
-    totalUSD,
-    fee,
-    netAmount,
-    orderId,
-    mode,
-    `"${notes}"`,
-  ].join(",");
+  appendCsvRow([date, time, "BitGet", logEntry.symbol, action, quantity,
+    logEntry.price.toFixed(2), totalUSD, pnlUSD, pnlPct, orderId, mode, `"${notes}"`]);
+}
 
-  if (!existsSync(CSV_FILE)) {
-    writeFileSync(CSV_FILE, CSV_HEADERS + "\n");
-  }
+// Write a trade CLOSE row (early exit, SL hit, TP hit)
+function writeExitCsv(trade) {
+  const now    = new Date(trade.closedAt || new Date());
+  const date   = now.toISOString().slice(0, 10);
+  const time   = now.toISOString().slice(11, 19);
+  const side   = trade.side || (trade.takeProfit > trade.price ? "buy" : "sell");
+  const action = side === "buy" ? "CLOSE LONG" : "CLOSE SHORT";
+  const qty    = (trade.quantity || (trade.tradeSize / trade.price)).toFixed(6);
+  const pnlPct = trade.pnlPct || "0";
+  const pnlUSD = (parseFloat(pnlPct) / 100 * (trade.tradeSize || 0)).toFixed(2);
+  const outcome = trade.outcome || "CLOSED";
+  const mode   = trade.paperTrading !== false ? "PAPER" : "LIVE";
+  const notes  = trade.exitReason
+    ? `${outcome}: ${trade.exitReason}`
+    : outcome;
 
-  // Retry up to 3 times in case file is locked (e.g. open in Excel)
+  appendCsvRow([date, time, "BitGet", trade.symbol, action, qty,
+    (trade.exitPrice || trade.price).toFixed(2),
+    (trade.tradeSize || 0).toFixed(2), pnlUSD, pnlPct + "%",
+    trade.orderId || "", mode, `"${notes}"`]);
+  console.log(`  📝 Exit logged to trades.csv — ${outcome} ${pnlPct}%`);
+}
+
+function appendCsvRow(cols) {
+  const row = cols.join(",");
+  if (!existsSync(CSV_FILE)) writeFileSync(CSV_FILE, CSV_HEADERS + "\n");
   const writeWithRetry = (attempt) => {
     try {
       appendFileSync(CSV_FILE, row + "\n");
-      console.log(`  Tax record saved → ${CSV_FILE}`);
     } catch (e) {
-      if (attempt >= 3) console.log(`  ⚠️  Could not write to trades.csv (file locked?) — ${e.message}`);
+      if (attempt >= 3) console.log(`  ⚠️  Could not write to trades.csv — ${e.message}`);
       else setTimeout(() => writeWithRetry(attempt + 1), 500);
     }
   };
   writeWithRetry(1);
 }
+
 
 // Tax summary command: node bot.js --tax-summary
 function generateTaxSummary() {
