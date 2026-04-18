@@ -833,39 +833,79 @@ function generateTaxSummary() {
   console.log("─────────────────────────────────────────────────────────\n");
 }
 
-// ─── Dynamic Position Sizing ($10–$15 based on signal strength) ─────────────
+// ─── Confidence Engine ($10–$15 sizing based on 5-factor market confidence) ──
 //
-//  Stronger signal = bigger position, weaker = smaller.
-//  Score is 0–5: lower-TF checks (0-4) + RSI depth bonus (0-1)
-//    ≥ 4.5  → $15  (4/4 lower TF + deep RSI)
-//    ≥ 3.5  → $12.50 (3-4/4 lower TF, normal RSI)
-//    < 3.5  → $10  (exactly 3/4, RSI just qualifying)
+//  Scores the setup out of 100% across 5 independent factors, then maps
+//  that confidence directly to a position size between $10 and $15.
+//
+//  Factors:
+//   1. Lower-TF confirmation  (35 pts) — how many of 4 entry checks pass
+//   2. RSI depth              (25 pts) — how far past the threshold
+//   3. VWAP proximity         (15 pts) — closer to VWAP = more mean-reversion room
+//   4. Symbol win rate        (15 pts) — this coin's historical performance
+//   5. Overall strategy WR    (10 pts) — bot's rolling win rate
+//
+//  Final size = $10 + (confidence% / 100) × $5, rounded to nearest $0.50
 
-function calcDynamicTradeSize(baseSize, entryConfirm, rsi3, bias, learning) {
-  const minSize = 10;
-  const maxSize = 15;
-  const midSize = 12.5;
+function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning) {
+  let score = 0;
+  const breakdown = {};
 
-  const lowerTFScore = entryConfirm?.passCount ?? 3;
+  // ── 1. Lower-TF confirmation (max 35 pts) ──
+  const ltfChecks = entryConfirm?.passCount ?? 3;
+  const ltfPts = (ltfChecks / 4) * 35;
+  score += ltfPts;
+  breakdown.lowerTF = `${ltfChecks}/4 checks → ${ltfPts.toFixed(1)}pts`;
+
+  // ── 2. RSI depth — how far past the entry threshold (max 25 pts) ──
   const rsiThreshold = learning.rsiEntryThreshold || 30;
-
-  // How far past the threshold is RSI? 0 = just barely, 1 = maximally deep
   let rsiDepth = 0;
-  if (bias === "bullish" && rsi3 !== null && !isNaN(rsi3)) {
-    rsiDepth = Math.min(1, Math.max(0, (rsiThreshold - rsi3) / rsiThreshold));
-  } else if (bias === "bearish" && rsi3 !== null && !isNaN(rsi3)) {
-    const upper = 100 - rsiThreshold;
-    rsiDepth = Math.min(1, Math.max(0, (rsi3 - upper) / (100 - upper)));
+  if (rsi3 !== null && !isNaN(rsi3)) {
+    if (bias === "bullish") {
+      rsiDepth = Math.min(1, Math.max(0, (rsiThreshold - rsi3) / rsiThreshold));
+    } else {
+      const upper = 100 - rsiThreshold;
+      rsiDepth = Math.min(1, Math.max(0, (rsi3 - upper) / (100 - upper)));
+    }
   }
+  const rsiPts = rsiDepth * 25;
+  score += rsiPts;
+  breakdown.rsi = `depth ${(rsiDepth * 100).toFixed(0)}% → ${rsiPts.toFixed(1)}pts`;
 
-  const score = lowerTFScore + rsiDepth;
+  // ── 3. VWAP proximity — closer = stronger mean-reversion signal (max 15 pts) ──
+  const vwapDist   = Math.abs((price - vwap) / vwap) * 100;
+  const vwapLimit  = learning.vwapProximityPct || 1.5;
+  const vwapScore  = Math.max(0, 1 - vwapDist / vwapLimit);
+  const vwapPts    = vwapScore * 15;
+  score += vwapPts;
+  breakdown.vwap = `${vwapDist.toFixed(2)}% from VWAP → ${vwapPts.toFixed(1)}pts`;
 
-  let size;
-  if (score >= 4.5)      size = maxSize;  // very strong signal
-  else if (score >= 3.5) size = midSize;  // normal signal
-  else                   size = minSize;  // weakest qualifying signal
+  // ── 4. Symbol-specific win rate from learning history (max 15 pts) ──
+  const symStats = learning.symbolStats?.[symbol];
+  const symTotal  = symStats ? symStats.wins + symStats.losses : 0;
+  // Need at least 3 trades on this symbol before trusting its WR; default 50%
+  const symWR    = symTotal >= 3 ? symStats.winRate / 100 : 0.50;
+  const symPts   = symWR * 15;
+  score += symPts;
+  breakdown.symbolWR = symTotal >= 3
+    ? `${symStats.winRate}% on ${symTotal} trades → ${symPts.toFixed(1)}pts`
+    : `no history yet → default ${symPts.toFixed(1)}pts`;
 
-  return { size, score: parseFloat(score.toFixed(2)), lowerTFScore, rsiDepth: parseFloat(rsiDepth.toFixed(2)) };
+  // ── 5. Overall bot win rate (max 10 pts) ──
+  const overallWR = learning.totalTrades >= 5 ? learning.winRate / 100 : 0.55;
+  const overallPts = overallWR * 10;
+  score += overallPts;
+  breakdown.overallWR = learning.totalTrades >= 5
+    ? `${learning.winRate}% overall → ${overallPts.toFixed(1)}pts`
+    : `new bot, default 55% → ${overallPts.toFixed(1)}pts`;
+
+  // ── Final confidence % and trade size ──
+  const confidencePct = Math.min(100, Math.round(score));
+  // $10 at 0%, $15 at 100% — rounded to nearest $0.50
+  const rawSize    = 10 + (confidencePct / 100) * 5;
+  const finalSize  = Math.min(15, Math.max(10, Math.round(rawSize * 2) / 2));
+
+  return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown };
 }
 
 // ─── Multi-Timeframe Entry Confirmation ─────────────────────────────────────
@@ -1018,13 +1058,19 @@ async function analyseSymbol(symbol, rules, log, learning) {
       logEntry.allPass = false;
       logEntry.blockedReason = entryConfirm.reason;
     } else {
-      // ── Dynamic sizing: $10-$15 based on signal strength ──
-      const sizing = calcDynamicTradeSize(tradeSize, entryConfirm, rsi3, bias, learning);
-      const finalTradeSize = sizing.size;
+      // ── Confidence engine: $10-$15 based on 5-factor market confidence ──
+      const conf = calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning);
+      const finalTradeSize = conf.finalSize;
       logEntry.tradeSize = finalTradeSize;
+      logEntry.confidence = conf;
 
       console.log(`\n  ✅ ALL CONDITIONS MET — ${entryConfirm.reason}`);
-      console.log(`  💰 Signal strength: ${sizing.score}/5 → position size $${finalTradeSize} (LTF: ${sizing.lowerTFScore}/4, RSI depth: ${(sizing.rsiDepth * 100).toFixed(0)}%)`);
+      console.log(`\n  🧠 CONFIDENCE BREAKDOWN — ${conf.confidencePct}% → $${finalTradeSize}`);
+      Object.entries(conf.breakdown).forEach(([k, v]) =>
+        console.log(`     ${k.padEnd(12)}: ${v}`)
+      );
+      console.log(`     ${"─".repeat(44)}`)
+      console.log(`     Total score : ${conf.score}/100 → size $${finalTradeSize}`);
       const side = bias === "bearish" ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
