@@ -80,6 +80,7 @@ const CONFIG = {
   maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || "2"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
+  leverage: parseInt(process.env.LEVERAGE || "1"),   // 1 = spot, 10 = futures 10x
   stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),
   rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
   // Early exit: cut trade when this % of SL distance is reached AND momentum confirms
@@ -146,12 +147,14 @@ function updateTradeOutcomes(log, learning, currentPrices) {
     else if (currentPrice >= trade.takeProfit) outcome = "WIN";
 
     if (outcome) {
+      const lev = trade.leverage || 1;
       trade.outcome = outcome;
       trade.exitPrice = currentPrice;
       trade.closedAt = new Date().toISOString();
       trade.pnlPct = outcome === "WIN"
-        ? ((trade.takeProfit - trade.price) / trade.price * 100).toFixed(2)
-        : ((trade.stopLoss - trade.price) / trade.price * 100).toFixed(2);
+        ? ((trade.takeProfit - trade.price) / trade.price * 100 * lev).toFixed(2)
+        : ((trade.stopLoss  - trade.price) / trade.price * 100 * lev).toFixed(2);
+      trade.pnlUSD = (parseFloat(trade.pnlPct) / 100 * (trade.tradeSize || 0)).toFixed(2);
 
       // Update learning stats
       learning.totalTrades++;
@@ -292,9 +295,10 @@ async function checkEarlyExits(log, learning, currentPrices) {
       }
 
       if (shouldExit) {
+        const lev = trade.leverage || CONFIG.leverage || 1;
         const pnlPct = tradeSide === "buy"
-          ? ((currentPrice - trade.price) / trade.price * 100)
-          : ((trade.price - currentPrice) / trade.price * 100);
+          ? ((currentPrice - trade.price) / trade.price * 100 * lev)
+          : ((trade.price - currentPrice) / trade.price * 100 * lev);
 
         const isProfit  = pnlPct >= 0;
         trade.outcome   = isProfit ? "EARLY_EXIT_PROFIT" : "EARLY_EXIT_LOSS";
@@ -302,6 +306,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         trade.closedAt  = new Date().toISOString();
         trade.exitReason = exitReason;
         trade.pnlPct    = pnlPct.toFixed(2);
+        trade.pnlUSD    = (pnlPct / 100 * (trade.tradeSize || 0)).toFixed(2);
 
         // Update learning
         learning.totalTrades++;
@@ -1066,11 +1071,14 @@ async function analyseSymbol(symbol, rules, log, learning) {
 
       if (CONFIG.paperTrading) {
         const { stopLoss, takeProfit } = calcSlTp(price, side);
-        const riskUSD = Math.abs(price - stopLoss) / price * finalTradeSize;
-        const rewardUSD = Math.abs(takeProfit - price) / price * finalTradeSize;
-        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol} $${finalTradeSize}`);
+        const lev = CONFIG.leverage;
+        const positionUSD = finalTradeSize * lev;
+        const riskUSD   = Math.abs(price - stopLoss)   / price * positionUSD;
+        const rewardUSD = Math.abs(takeProfit - price)  / price * positionUSD;
+        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol}`);
+        console.log(`     Margin:      $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)} position`);
         console.log(`     Entry:       $${price.toFixed(2)}`);
-        console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk $${riskUSD.toFixed(2)}`);
+        console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk  $${riskUSD.toFixed(2)}`);
         console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
         console.log(`     R:R Ratio:   1:${CONFIG.rrRatio}`);
         logEntry.orderPlaced = true;
@@ -1079,6 +1087,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.takeProfit = takeProfit;
         logEntry.side = side;
         logEntry.quantity = finalTradeSize / price;
+        logEntry.leverage = CONFIG.leverage;
       } else {
         console.log(`\n  🔴 PLACING LIVE ORDER — $${finalTradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
         try {
