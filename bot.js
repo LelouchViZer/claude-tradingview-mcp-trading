@@ -79,6 +79,8 @@ const CONFIG = {
   maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY || "3"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
+  stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),   // % below entry for SL
+  rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),             // risk:reward (2 = 2:1)
   bitget: {
     apiKey: process.env.BITGET_API_KEY,
     secretKey: process.env.BITGET_SECRET_KEY,
@@ -325,9 +327,26 @@ function signBitGet(timestamp, method, path, body = "") {
     .digest("base64");
 }
 
+// Calculate SL and TP prices based on strategy rules
+function calcSlTp(entryPrice, side) {
+  const slPct = CONFIG.stopLossPct / 100;
+  const tpPct = slPct * CONFIG.rrRatio;
+  let stopLoss, takeProfit;
+  if (side === "buy") {
+    stopLoss   = parseFloat((entryPrice * (1 - slPct)).toFixed(2));
+    takeProfit = parseFloat((entryPrice * (1 + tpPct)).toFixed(2));
+  } else {
+    stopLoss   = parseFloat((entryPrice * (1 + slPct)).toFixed(2));
+    takeProfit = parseFloat((entryPrice * (1 - tpPct)).toFixed(2));
+  }
+  return { stopLoss, takeProfit };
+}
+
 async function placeBitGetOrder(symbol, side, sizeUSD, price) {
   const quantity = (sizeUSD / price).toFixed(6);
   const timestamp = Date.now().toString();
+  const { stopLoss, takeProfit } = calcSlTp(price, side);
+
   const path =
     CONFIG.tradeMode === "spot"
       ? "/api/v2/spot/trade/placeOrder"
@@ -342,6 +361,8 @@ async function placeBitGetOrder(symbol, side, sizeUSD, price) {
       productType: "USDT-FUTURES",
       marginMode: "isolated",
       marginCoin: "USDT",
+      presetStopLossPrice: stopLoss.toString(),
+      presetStopSurplusPrice: takeProfit.toString(),
     }),
   });
 
@@ -364,7 +385,49 @@ async function placeBitGetOrder(symbol, side, sizeUSD, price) {
     throw new Error(`BitGet order failed: ${data.msg}`);
   }
 
-  return data.data;
+  // For spot: place a separate stop-loss limit order after entry
+  if (CONFIG.tradeMode === "spot" && data.data?.orderId) {
+    await placeSpotStopLoss(symbol, quantity, stopLoss);
+  }
+
+  return { ...data.data, stopLoss, takeProfit };
+}
+
+// Spot stop-loss via BitGet plan order
+async function placeSpotStopLoss(symbol, quantity, stopLossPrice) {
+  const timestamp = Date.now().toString();
+  const path = "/api/v2/spot/trade/place-plan-order";
+  const body = JSON.stringify({
+    symbol,
+    side: "sell",
+    orderType: "market",
+    triggerPrice: stopLossPrice.toString(),
+    triggerType: "fill_price",
+    size: quantity,
+    planType: "profit_loss",
+  });
+  const signature = signBitGet(timestamp, "POST", path, body);
+  try {
+    const res = await fetch(`${CONFIG.bitget.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ACCESS-KEY": CONFIG.bitget.apiKey,
+        "ACCESS-SIGN": signature,
+        "ACCESS-TIMESTAMP": timestamp,
+        "ACCESS-PASSPHRASE": CONFIG.bitget.passphrase,
+      },
+      body,
+    });
+    const data = await res.json();
+    if (data.code === "00000") {
+      console.log(`🛡️  Stop-loss order placed at $${stopLossPrice}`);
+    } else {
+      console.log(`⚠️  Stop-loss order failed: ${data.msg}`);
+    }
+  } catch (e) {
+    console.log(`⚠️  Stop-loss order error: ${e.message}`);
+  }
 }
 
 // ─── Tax CSV Logging ─────────────────────────────────────────────────────────
@@ -582,12 +645,19 @@ async function run() {
     console.log(`✅ ALL CONDITIONS MET`);
 
     if (CONFIG.paperTrading) {
-      console.log(
-        `\n📋 PAPER TRADE — would buy ${CONFIG.symbol} ~$${tradeSize.toFixed(2)} at market`,
-      );
-      console.log(`   (Set PAPER_TRADING=false in .env to place real orders)`);
+      const { stopLoss, takeProfit } = calcSlTp(price, "buy");
+      const riskUSD = (price - stopLoss) / price * tradeSize;
+      const rewardUSD = (takeProfit - price) / price * tradeSize;
+      console.log(`\n📋 PAPER TRADE — would buy ${CONFIG.symbol} ~$${tradeSize.toFixed(2)} at market`);
+      console.log(`   Entry:       $${price.toFixed(2)}`);
+      console.log(`   Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) — risk $${riskUSD.toFixed(2)}`);
+      console.log(`   Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) — reward $${rewardUSD.toFixed(2)}`);
+      console.log(`   R:R Ratio:   1:${CONFIG.rrRatio}`);
+      console.log(`   (Set PAPER_TRADING=false in Railway Variables to go live)`);
       logEntry.orderPlaced = true;
       logEntry.orderId = `PAPER-${Date.now()}`;
+      logEntry.stopLoss = stopLoss;
+      logEntry.takeProfit = takeProfit;
     } else {
       console.log(
         `\n🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} BUY ${CONFIG.symbol}`,
