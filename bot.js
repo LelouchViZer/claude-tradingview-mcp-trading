@@ -72,20 +72,27 @@ function checkOnboarding() {
 // ─── Config ────────────────────────────────────────────────────────────────
 
 const CONFIG = {
-  symbol: process.env.SYMBOL || "BTCUSDT",
+  symbols: (process.env.SYMBOLS || process.env.SYMBOL || "BTCUSDT").split(",").map(s => s.trim()),
   timeframe: process.env.TIMEFRAME || "4H",
   portfolioValue: parseFloat(process.env.PORTFOLIO_VALUE_USD || "1000"),
   maxTradeSizeUSD: parseFloat(process.env.MAX_TRADE_SIZE_USD || "100"),
   maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY || "3"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
-  stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),   // % below entry for SL
-  rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),             // risk:reward (2 = 2:1)
+  stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),
+  rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
   bitget: {
     apiKey: process.env.BITGET_API_KEY,
     secretKey: process.env.BITGET_SECRET_KEY,
     passphrase: process.env.BITGET_PASSPHRASE,
     baseUrl: process.env.BITGET_BASE_URL || "https://api.bitget.com",
+  },
+  // Per-symbol risk sizing based on strategy rules
+  symbolRiskPct: {
+    "BTCUSDT":  1.0,
+    "ETHUSDT":  1.0,
+    "SOLUSDT":  0.5,
+    "XAUTUSDT": 1.0,
   },
 };
 
@@ -128,8 +135,16 @@ async function fetchCandles(symbol, interval, limit = 100) {
 
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${limit}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Binance API error: ${res.status}`);
+  if (!res.ok) throw new Error(`Binance API error ${res.status} for ${symbol}`);
   const data = await res.json();
+
+  // Binance returns an error object instead of array if symbol not found
+  if (!Array.isArray(data)) {
+    throw new Error(`${symbol} not available on Binance: ${data.msg || JSON.stringify(data)}`);
+  }
+  if (data.length < 10) {
+    throw new Error(`Not enough candle data for ${symbol} (got ${data.length})`);
+  }
 
   return data.map((k) => ({
     time: k[0],
@@ -522,8 +537,17 @@ function writeTradeCsv(logEntry) {
     writeFileSync(CSV_FILE, CSV_HEADERS + "\n");
   }
 
-  appendFileSync(CSV_FILE, row + "\n");
-  console.log(`Tax record saved → ${CSV_FILE}`);
+  // Retry up to 3 times in case file is locked (e.g. open in Excel)
+  const writeWithRetry = (attempt) => {
+    try {
+      appendFileSync(CSV_FILE, row + "\n");
+      console.log(`  Tax record saved → ${CSV_FILE}`);
+    } catch (e) {
+      if (attempt >= 3) console.log(`  ⚠️  Could not write to trades.csv (file locked?) — ${e.message}`);
+      else setTimeout(() => writeWithRetry(attempt + 1), 500);
+    }
+  };
+  writeWithRetry(1);
 }
 
 // Tax summary command: node bot.js --tax-summary
@@ -554,72 +578,49 @@ function generateTaxSummary() {
   console.log("─────────────────────────────────────────────────────────\n");
 }
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── Analyse one symbol ──────────────────────────────────────────────────────
 
-async function run() {
-  checkOnboarding();
-  initCsv();
-  console.log("═══════════════════════════════════════════════════════════");
-  console.log("  Claude Trading Bot");
-  console.log(`  ${new Date().toISOString()}`);
-  console.log(
-    `  Mode: ${CONFIG.paperTrading ? "📋 PAPER TRADING" : "🔴 LIVE TRADING"}`,
+async function analyseSymbol(symbol, rules, log) {
+  console.log(`\n${"─".repeat(57)}`);
+  console.log(`  📊 ${symbol}`);
+  console.log(`${"─".repeat(57)}\n`);
+
+  // Per-symbol risk sizing
+  const riskPct = CONFIG.symbolRiskPct[symbol] ?? 1.0;
+  const tradeSize = Math.min(
+    CONFIG.portfolioValue * (riskPct / 100),
+    CONFIG.maxTradeSizeUSD,
   );
-  console.log("═══════════════════════════════════════════════════════════");
 
-  // Load strategy — from env var (cloud) or file (local)
-  const rulesRaw = process.env.RULES_JSON
-    ? process.env.RULES_JSON
-    : readFileSync("rules.json", "utf8");
-  const rules = JSON.parse(rulesRaw);
-  const strategyName = rules.strategy_name || (rules.strategy && rules.strategy.name) || "Custom Strategy";
-  console.log(`\nStrategy: ${strategyName}`);
-  console.log(`Symbol: ${CONFIG.symbol} | Timeframe: ${CONFIG.timeframe}`);
-
-  // Load log and check daily limits
-  const log = loadLog();
-  const withinLimits = checkTradeLimits(log);
-  if (!withinLimits) {
-    console.log("\nBot stopping — trade limits reached for today.");
-    return;
-  }
-
-  // Fetch candle data — need enough for EMA(8) + full session for VWAP
-  console.log("\n── Fetching market data from Binance ───────────────────\n");
-  const candles = await fetchCandles(CONFIG.symbol, CONFIG.timeframe, 500);
+  // Fetch candles
+  const candles = await fetchCandles(symbol, CONFIG.timeframe, 500);
   const closes = candles.map((c) => c.close);
   const price = closes[closes.length - 1];
-  console.log(`  Current price: $${price.toFixed(2)}`);
 
-  // Calculate indicators
   const ema8 = calcEMA(closes, 8);
   const vwap = calcVWAP(candles);
   const rsi3 = calcRSI(closes, 3);
 
+  console.log(`  Price:   $${price.toFixed(2)}`);
   console.log(`  EMA(8):  $${ema8.toFixed(2)}`);
   console.log(`  VWAP:    $${vwap ? vwap.toFixed(2) : "N/A"}`);
-  console.log(`  RSI(3):  ${rsi3 ? rsi3.toFixed(2) : "N/A"}`);
+  console.log(`  RSI(3):  ${(rsi3 !== null && rsi3 !== undefined && !isNaN(rsi3)) ? rsi3.toFixed(2) : "N/A (flat market)"}`);
+  console.log(`  Risk:    ${riskPct}% = $${tradeSize.toFixed(2)}`);
 
-  if (!vwap || !rsi3) {
-    console.log("\n⚠️  Not enough data to calculate indicators. Exiting.");
-    return;
+  if (vwap === null || vwap === undefined || isNaN(vwap) ||
+      rsi3 === null || rsi3 === undefined || isNaN(rsi3)) {
+    console.log(`\n  ⚠️  Skipping ${symbol} — VWAP: ${vwap}, RSI: ${rsi3}`);
+    return null;
   }
 
-  // Run safety check
   const { results, allPass } = runSafetyCheck(price, ema8, vwap, rsi3, rules);
 
-  // Calculate position size
-  const tradeSize = Math.min(
-    CONFIG.portfolioValue * 0.01,
-    CONFIG.maxTradeSizeUSD,
-  );
-
-  // Decision
-  console.log("\n── Decision ─────────────────────────────────────────────\n");
+  console.log(`\n  Safety Check:`);
+  results.forEach(r => console.log(`  ${r.pass ? "✅" : "🚫"} ${r.label}`));
 
   const logEntry = {
     timestamp: new Date().toISOString(),
-    symbol: CONFIG.symbol,
+    symbol,
     timeframe: CONFIG.timeframe,
     price,
     indicators: { ema8, vwap, rsi3 },
@@ -638,56 +639,97 @@ async function run() {
 
   if (!allPass) {
     const failed = results.filter((r) => !r.pass).map((r) => r.label);
-    console.log(`🚫 TRADE BLOCKED`);
-    console.log(`   Failed conditions:`);
-    failed.forEach((f) => console.log(`   - ${f}`));
+    console.log(`\n  🚫 BLOCKED — ${failed.length} condition(s) failed`);
   } else {
-    console.log(`✅ ALL CONDITIONS MET`);
-
+    console.log(`\n  ✅ ALL CONDITIONS MET`);
     if (CONFIG.paperTrading) {
       const { stopLoss, takeProfit } = calcSlTp(price, "buy");
       const riskUSD = (price - stopLoss) / price * tradeSize;
       const rewardUSD = (takeProfit - price) / price * tradeSize;
-      console.log(`\n📋 PAPER TRADE — would buy ${CONFIG.symbol} ~$${tradeSize.toFixed(2)} at market`);
-      console.log(`   Entry:       $${price.toFixed(2)}`);
-      console.log(`   Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) — risk $${riskUSD.toFixed(2)}`);
-      console.log(`   Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) — reward $${rewardUSD.toFixed(2)}`);
-      console.log(`   R:R Ratio:   1:${CONFIG.rrRatio}`);
-      console.log(`   (Set PAPER_TRADING=false in Railway Variables to go live)`);
+      console.log(`\n  📋 PAPER TRADE — ${symbol} ~$${tradeSize.toFixed(2)}`);
+      console.log(`     Entry:       $${price.toFixed(2)}`);
+      console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk $${riskUSD.toFixed(2)}`);
+      console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
+      console.log(`     R:R Ratio:   1:${CONFIG.rrRatio}`);
       logEntry.orderPlaced = true;
       logEntry.orderId = `PAPER-${Date.now()}`;
       logEntry.stopLoss = stopLoss;
       logEntry.takeProfit = takeProfit;
     } else {
-      console.log(
-        `\n🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} BUY ${CONFIG.symbol}`,
-      );
+      console.log(`\n  🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} BUY ${symbol}`);
       try {
-        const order = await placeBitGetOrder(
-          CONFIG.symbol,
-          "buy",
-          tradeSize,
-          price,
-        );
+        const order = await placeBitGetOrder(symbol, "buy", tradeSize, price);
         logEntry.orderPlaced = true;
         logEntry.orderId = order.orderId;
-        console.log(`✅ ORDER PLACED — ${order.orderId}`);
+        logEntry.stopLoss = order.stopLoss;
+        logEntry.takeProfit = order.takeProfit;
+        console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
+        console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
       } catch (err) {
-        console.log(`❌ ORDER FAILED — ${err.message}`);
+        console.log(`  ❌ ORDER FAILED — ${err.message}`);
         logEntry.error = err.message;
       }
     }
   }
 
-  // Save decision log
-  log.trades.push(logEntry);
-  saveLog(log);
-  console.log(`\nDecision log saved → ${LOG_FILE}`);
+  return logEntry;
+}
 
-  // Write tax CSV row for every run (executed, paper, or blocked)
-  writeTradeCsv(logEntry);
+// ─── Main ────────────────────────────────────────────────────────────────────
 
-  console.log("═══════════════════════════════════════════════════════════\n");
+async function run() {
+  checkOnboarding();
+  initCsv();
+
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("  Claude Trading Bot");
+  console.log(`  ${new Date().toISOString()}`);
+  console.log(`  Mode: ${CONFIG.paperTrading ? "📋 PAPER TRADING" : "🔴 LIVE TRADING"}`);
+  console.log(`  Scanning: ${CONFIG.symbols.join(", ")}`);
+  console.log("═══════════════════════════════════════════════════════════");
+
+  // Load strategy
+  const rulesRaw = process.env.RULES_JSON
+    ? process.env.RULES_JSON
+    : readFileSync("rules.json", "utf8");
+  const rules = JSON.parse(rulesRaw);
+  const strategyName = rules.strategy_name || (rules.strategy && rules.strategy.name) || "Custom Strategy";
+  console.log(`\nStrategy: ${strategyName}`);
+  console.log(`Timeframe: ${CONFIG.timeframe}`);
+
+  // Load log and check daily limits
+  const log = loadLog();
+  const withinLimits = checkTradeLimits(log);
+  if (!withinLimits) {
+    console.log("\nBot stopping — trade limits reached for today.");
+    return;
+  }
+
+  // Scan every symbol
+  for (const symbol of CONFIG.symbols) {
+    try {
+      const logEntry = await analyseSymbol(symbol, rules, log);
+      if (logEntry) {
+        log.trades.push(logEntry);
+        saveLog(log);
+        writeTradeCsv(logEntry);
+        // Stop if daily trade limit reached mid-scan
+        if (!checkTradeLimits(log)) {
+          console.log("\n⛔ Daily trade limit reached — stopping scan.");
+          break;
+        }
+      }
+    } catch (err) {
+      console.log(`\n⚠️  Error scanning ${symbol}: ${err.message}`);
+    }
+    // Small delay between symbols to avoid rate limits
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  console.log(`\n${"═".repeat(57)}`);
+  console.log(`  Scan complete — ${CONFIG.symbols.length} symbols checked`);
+  console.log(`  Log → ${LOG_FILE}`);
+  console.log(`${"═".repeat(57)}\n`);
 }
 
 if (process.argv.includes("--tax-summary")) {
