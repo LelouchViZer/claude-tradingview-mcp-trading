@@ -97,6 +97,7 @@ const CONFIG = {
 };
 
 const LOG_FILE = "safety-check-log.json";
+const LEARN_FILE = "learning.json";
 
 // ─── Logging ────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,110 @@ function loadLog() {
 
 function saveLog(log) {
   writeFileSync(LOG_FILE, JSON.stringify(log, null, 2));
+}
+
+// ─── Learning System ─────────────────────────────────────────────────────────
+
+function loadLearning() {
+  if (!existsSync(LEARN_FILE)) return {
+    totalTrades: 0, wins: 0, losses: 0, winRate: 0,
+    // Adaptive thresholds — bot adjusts these based on performance
+    rsiEntryThreshold: 30,        // Default: RSI < 30 to enter long
+    vwapProximityPct: 1.5,        // Default: price within 1.5% of VWAP
+    entryTF: "15m",               // Default lower TF for entry timing
+    symbolStats: {},              // Per-symbol win/loss tracking
+    lastUpdated: null,
+    notes: []
+  };
+  return JSON.parse(readFileSync(LEARN_FILE, "utf8"));
+}
+
+function saveLearning(learning) {
+  writeFileSync(LEARN_FILE, JSON.stringify(learning, null, 2));
+}
+
+// Check all open paper trades — did they hit SL or TP since last scan?
+function updateTradeOutcomes(log, learning, currentPrices) {
+  let updated = false;
+  for (const trade of log.trades) {
+    if (!trade.orderPlaced || trade.outcome) continue; // skip if already resolved
+    const currentPrice = currentPrices[trade.symbol];
+    if (!currentPrice || !trade.stopLoss || !trade.takeProfit) continue;
+
+    let outcome = null;
+    if (currentPrice <= trade.stopLoss) outcome = "LOSS";
+    else if (currentPrice >= trade.takeProfit) outcome = "WIN";
+
+    if (outcome) {
+      trade.outcome = outcome;
+      trade.exitPrice = currentPrice;
+      trade.closedAt = new Date().toISOString();
+      trade.pnlPct = outcome === "WIN"
+        ? ((trade.takeProfit - trade.price) / trade.price * 100).toFixed(2)
+        : ((trade.stopLoss - trade.price) / trade.price * 100).toFixed(2);
+
+      // Update learning stats
+      learning.totalTrades++;
+      if (outcome === "WIN") learning.wins++;
+      else learning.losses++;
+      learning.winRate = parseFloat((learning.wins / learning.totalTrades * 100).toFixed(1));
+
+      // Per-symbol stats
+      if (!learning.symbolStats[trade.symbol]) {
+        learning.symbolStats[trade.symbol] = { wins: 0, losses: 0, winRate: 0 };
+      }
+      const sym = learning.symbolStats[trade.symbol];
+      if (outcome === "WIN") sym.wins++; else sym.losses++;
+      sym.winRate = parseFloat((sym.wins / (sym.wins + sym.losses) * 100).toFixed(1));
+
+      console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
+      console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    // Auto-adapt thresholds based on last 10 closed trades
+    adaptThresholds(log, learning);
+    learning.lastUpdated = new Date().toISOString();
+  }
+  return updated;
+}
+
+function adaptThresholds(log, learning) {
+  const closed = log.trades.filter(t => t.outcome).slice(-10);
+  if (closed.length < 5) return; // need at least 5 trades to adapt
+
+  const recentWinRate = closed.filter(t => t.outcome === "WIN").length / closed.length * 100;
+
+  const note = [];
+
+  // Win rate too low → tighten entry (require more oversold RSI)
+  if (recentWinRate < 45 && learning.rsiEntryThreshold > 20) {
+    learning.rsiEntryThreshold = Math.max(20, learning.rsiEntryThreshold - 2);
+    note.push(`Win rate ${recentWinRate.toFixed(0)}% — tightened RSI threshold to ${learning.rsiEntryThreshold}`);
+  }
+  // Win rate high → can relax slightly to catch more setups
+  else if (recentWinRate > 70 && learning.rsiEntryThreshold < 35) {
+    learning.rsiEntryThreshold = Math.min(35, learning.rsiEntryThreshold + 1);
+    note.push(`Win rate ${recentWinRate.toFixed(0)}% — relaxed RSI threshold to ${learning.rsiEntryThreshold}`);
+  }
+
+  // VWAP proximity: tighten if losing too much
+  if (recentWinRate < 40 && learning.vwapProximityPct > 0.8) {
+    learning.vwapProximityPct = Math.max(0.8, learning.vwapProximityPct - 0.2);
+    note.push(`Tightened VWAP proximity to ${learning.vwapProximityPct}%`);
+  } else if (recentWinRate > 65 && learning.vwapProximityPct < 2.0) {
+    learning.vwapProximityPct = Math.min(2.0, learning.vwapProximityPct + 0.1);
+    note.push(`Relaxed VWAP proximity to ${learning.vwapProximityPct}%`);
+  }
+
+  if (note.length > 0) {
+    const entry = { date: new Date().toISOString(), changes: note, recentWinRate };
+    learning.notes.push(entry);
+    console.log(`\n  🧠 STRATEGY ADAPTED:`);
+    note.forEach(n => console.log(`     → ${n}`));
+  }
 }
 
 function countTodaysTrades(log) {
@@ -211,6 +316,10 @@ function runSafetyCheck(price, ema8, vwap, rsi3, rules) {
 
   console.log("\n── Safety Check ─────────────────────────────────────────\n");
 
+  // Use adaptive thresholds if available
+  const rsiThreshold = rules._rsiThreshold || 30;
+  const vwapProximity = rules._vwapProximity || 1.5;
+
   // Determine bias first
   const bullishBias = price > vwap && price > ema8;
   const bearishBias = price < vwap && price < ema8;
@@ -234,21 +343,21 @@ function runSafetyCheck(price, ema8, vwap, rsi3, rules) {
       price > ema8,
     );
 
-    // 3. RSI(3) pullback
+    // 3. RSI(3) pullback — uses adaptive threshold
     check(
-      "RSI(3) below 30 (snap-back setup in uptrend)",
-      "< 30",
+      `RSI(3) below ${rsiThreshold} (snap-back setup in uptrend)`,
+      `< ${rsiThreshold}`,
       rsi3.toFixed(2),
-      rsi3 < 30,
+      rsi3 < rsiThreshold,
     );
 
-    // 4. Not overextended from VWAP
+    // 4. Not overextended from VWAP — uses adaptive proximity
     const distFromVWAP = Math.abs((price - vwap) / vwap) * 100;
     check(
-      "Price within 1.5% of VWAP (not overextended)",
-      "< 1.5%",
+      `Price within ${vwapProximity}% of VWAP (not overextended)`,
+      `< ${vwapProximity}%`,
       `${distFromVWAP.toFixed(2)}%`,
-      distFromVWAP < 1.5,
+      distFromVWAP < vwapProximity,
     );
   } else if (bearishBias) {
     console.log("  Bias: BEARISH — checking short entry conditions\n");
@@ -268,18 +377,18 @@ function runSafetyCheck(price, ema8, vwap, rsi3, rules) {
     );
 
     check(
-      "RSI(3) above 70 (reversal setup in downtrend)",
-      "> 70",
+      `RSI(3) above ${100 - rsiThreshold} (reversal setup in downtrend)`,
+      `> ${100 - rsiThreshold}`,
       rsi3.toFixed(2),
-      rsi3 > 70,
+      rsi3 > (100 - rsiThreshold),
     );
 
     const distFromVWAP = Math.abs((price - vwap) / vwap) * 100;
     check(
-      "Price within 1.5% of VWAP (not overextended)",
-      "< 1.5%",
+      `Price within ${vwapProximity}% of VWAP (not overextended)`,
+      `< ${vwapProximity}%`,
       `${distFromVWAP.toFixed(2)}%`,
-      distFromVWAP < 1.5,
+      distFromVWAP < vwapProximity,
     );
   } else {
     console.log("  Bias: NEUTRAL — no clear direction. No trade.\n");
@@ -292,7 +401,8 @@ function runSafetyCheck(price, ema8, vwap, rsi3, rules) {
   }
 
   const allPass = results.every((r) => r.pass);
-  return { results, allPass };
+  const bias = bullishBias ? "bullish" : bearishBias ? "bearish" : "neutral";
+  return { results, allPass, bias };
 }
 
 // ─── Trade Limits ────────────────────────────────────────────────────────────
@@ -313,20 +423,8 @@ function checkTradeLimits(log) {
     `✅ Trades today: ${todayCount}/${CONFIG.maxTradesPerDay} — within limit`,
   );
 
-  const tradeSize = Math.min(
-    CONFIG.portfolioValue * 0.01,
-    CONFIG.maxTradeSizeUSD,
-  );
-
-  if (tradeSize > CONFIG.maxTradeSizeUSD) {
-    console.log(
-      `🚫 Trade size $${tradeSize.toFixed(2)} exceeds max $${CONFIG.maxTradeSizeUSD}`,
-    );
-    return false;
-  }
-
   console.log(
-    `✅ Trade size: $${tradeSize.toFixed(2)} — within max $${CONFIG.maxTradeSizeUSD}`,
+    `✅ Max trade size: $${CONFIG.maxTradeSizeUSD} — configured`,
   );
 
   return true;
@@ -578,19 +676,81 @@ function generateTaxSummary() {
   console.log("─────────────────────────────────────────────────────────\n");
 }
 
+// ─── Multi-Timeframe Entry Confirmation ─────────────────────────────────────
+
+async function confirmEntryOnLowerTF(symbol, bias, learning) {
+  const entryTF = learning.entryTF || "15m";
+  console.log(`\n  🔍 Checking ${entryTF} for precise entry...`);
+
+  try {
+    // Fetch lower TF candles
+    const candles5m = await fetchCandles(symbol, entryTF, 100);
+    const closes5m = candles5m.map(c => c.close);
+    const price5m = closes5m[closes5m.length - 1];
+
+    const ema8_5m = calcEMA(closes5m, 8);
+    const vwap5m = calcVWAP(candles5m);
+    const rsi3_5m = calcRSI(closes5m, 3);
+
+    if (!vwap5m || rsi3_5m === null || isNaN(rsi3_5m)) {
+      console.log(`  ⚠️  Lower TF data unavailable — using 4H entry only`);
+      return { confirmed: true, reason: "Lower TF unavailable — 4H entry used" };
+    }
+
+    const lastCandle = candles5m[candles5m.length - 1];
+    const prevCandle = candles5m[candles5m.length - 2];
+    const confirmationCandle = bias === "bullish"
+      ? lastCandle.close > lastCandle.open   // bullish candle
+      : lastCandle.close < lastCandle.open;  // bearish candle
+
+    const distFromVwap5m = Math.abs((price5m - vwap5m) / vwap5m) * 100;
+    const rsiThreshold = learning.rsiEntryThreshold || 30;
+
+    const checks = {
+      rsiOversold: bias === "bullish" ? rsi3_5m < rsiThreshold : rsi3_5m > (100 - rsiThreshold),
+      nearVwap: distFromVwap5m < (learning.vwapProximityPct || 1.5),
+      confirmCandle: confirmationCandle,
+      emaAligned: bias === "bullish" ? price5m > ema8_5m : price5m < ema8_5m,
+    };
+
+    console.log(`  ${entryTF} Price: $${price5m.toFixed(2)} | EMA8: $${ema8_5m.toFixed(2)} | VWAP: $${vwap5m.toFixed(2)} | RSI: ${rsi3_5m.toFixed(1)}`);
+    console.log(`  ${checks.rsiOversold ? "✅" : "🚫"} RSI(3) ${bias === "bullish" ? "< " + rsiThreshold : "> " + (100 - rsiThreshold)} on ${entryTF} — actual: ${rsi3_5m.toFixed(1)}`);
+    console.log(`  ${checks.nearVwap ? "✅" : "🚫"} Within ${learning.vwapProximityPct || 1.5}% of ${entryTF} VWAP — actual: ${distFromVwap5m.toFixed(2)}%`);
+    console.log(`  ${checks.confirmCandle ? "✅" : "🚫"} ${bias === "bullish" ? "Bullish" : "Bearish"} confirmation candle on ${entryTF}`);
+    console.log(`  ${checks.emaAligned ? "✅" : "🚫"} Price ${bias === "bullish" ? "above" : "below"} EMA(8) on ${entryTF}`);
+
+    // Need at least 3 of 4 lower TF checks to pass
+    const passCount = Object.values(checks).filter(Boolean).length;
+    const confirmed = passCount >= 3;
+
+    return {
+      confirmed,
+      passCount,
+      checks,
+      entryTF,
+      rsi: rsi3_5m,
+      reason: confirmed
+        ? `${entryTF} entry confirmed (${passCount}/4 checks passed)`
+        : `${entryTF} entry rejected (only ${passCount}/4 checks passed — waiting for better entry)`
+    };
+  } catch (err) {
+    console.log(`  ⚠️  Lower TF check failed: ${err.message} — proceeding with 4H entry`);
+    return { confirmed: true, reason: "Lower TF error — 4H entry used" };
+  }
+}
+
 // ─── Analyse one symbol ──────────────────────────────────────────────────────
 
-async function analyseSymbol(symbol, rules, log) {
+async function analyseSymbol(symbol, rules, log, learning) {
   console.log(`\n${"─".repeat(57)}`);
   console.log(`  📊 ${symbol}`);
   console.log(`${"─".repeat(57)}\n`);
 
   // Per-symbol risk sizing
-  const riskPct = CONFIG.symbolRiskPct[symbol] ?? 1.0;
-  const tradeSize = Math.min(
-    CONFIG.portfolioValue * (riskPct / 100),
-    CONFIG.maxTradeSizeUSD,
-  );
+  // symbolRiskPct acts as a multiplier on MAX_TRADE_SIZE_USD:
+  //   1.0 → full size (e.g. $8), 0.5 → half size (e.g. $4)
+  const riskMultiplier = CONFIG.symbolRiskPct[symbol] ?? 1.0;
+  const tradeSize = parseFloat((CONFIG.maxTradeSizeUSD * riskMultiplier).toFixed(2));
 
   // Fetch candles
   const candles = await fetchCandles(symbol, CONFIG.timeframe, 500);
@@ -605,7 +765,7 @@ async function analyseSymbol(symbol, rules, log) {
   console.log(`  EMA(8):  $${ema8.toFixed(2)}`);
   console.log(`  VWAP:    $${vwap ? vwap.toFixed(2) : "N/A"}`);
   console.log(`  RSI(3):  ${(rsi3 !== null && rsi3 !== undefined && !isNaN(rsi3)) ? rsi3.toFixed(2) : "N/A (flat market)"}`);
-  console.log(`  Risk:    ${riskPct}% = $${tradeSize.toFixed(2)}`);
+  console.log(`  Size:    $${tradeSize.toFixed(2)} (${riskMultiplier * 100}% of max $${CONFIG.maxTradeSizeUSD})`);
 
   if (vwap === null || vwap === undefined || isNaN(vwap) ||
       rsi3 === null || rsi3 === undefined || isNaN(rsi3)) {
@@ -613,9 +773,16 @@ async function analyseSymbol(symbol, rules, log) {
     return null;
   }
 
-  const { results, allPass } = runSafetyCheck(price, ema8, vwap, rsi3, rules);
+  // Use adaptive thresholds from learning system
+  const adaptedRules = {
+    ...rules,
+    _rsiThreshold: learning.rsiEntryThreshold || 30,
+    _vwapProximity: learning.vwapProximityPct || 1.5,
+  };
 
-  console.log(`\n  Safety Check:`);
+  const { results, allPass, bias } = runSafetyCheck(price, ema8, vwap, rsi3, adaptedRules);
+
+  console.log(`\n  Safety Check (RSI threshold: ${adaptedRules._rsiThreshold}, VWAP proximity: ${adaptedRules._vwapProximity}%):`);
   results.forEach(r => console.log(`  ${r.pass ? "✅" : "🚫"} ${r.label}`));
 
   const logEntry = {
@@ -626,6 +793,7 @@ async function analyseSymbol(symbol, rules, log) {
     indicators: { ema8, vwap, rsi3 },
     conditions: results,
     allPass,
+    bias,
     tradeSize,
     orderPlaced: false,
     orderId: null,
@@ -641,33 +809,48 @@ async function analyseSymbol(symbol, rules, log) {
     const failed = results.filter((r) => !r.pass).map((r) => r.label);
     console.log(`\n  🚫 BLOCKED — ${failed.length} condition(s) failed`);
   } else {
-    console.log(`\n  ✅ ALL CONDITIONS MET`);
-    if (CONFIG.paperTrading) {
-      const { stopLoss, takeProfit } = calcSlTp(price, "buy");
-      const riskUSD = (price - stopLoss) / price * tradeSize;
-      const rewardUSD = (takeProfit - price) / price * tradeSize;
-      console.log(`\n  📋 PAPER TRADE — ${symbol} ~$${tradeSize.toFixed(2)}`);
-      console.log(`     Entry:       $${price.toFixed(2)}`);
-      console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk $${riskUSD.toFixed(2)}`);
-      console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
-      console.log(`     R:R Ratio:   1:${CONFIG.rrRatio}`);
-      logEntry.orderPlaced = true;
-      logEntry.orderId = `PAPER-${Date.now()}`;
-      logEntry.stopLoss = stopLoss;
-      logEntry.takeProfit = takeProfit;
+    // ── Step 2: Multi-timeframe entry confirmation ──
+    const entryConfirm = await confirmEntryOnLowerTF(symbol, bias, learning);
+    logEntry.entryConfirmation = entryConfirm;
+
+    if (!entryConfirm.confirmed) {
+      console.log(`\n  ⏳ 4H CONDITIONS MET — but ${entryConfirm.reason}`);
+      console.log(`     Waiting for better entry on ${entryConfirm.entryTF}...`);
+      logEntry.allPass = false;
+      logEntry.blockedReason = entryConfirm.reason;
     } else {
-      console.log(`\n  🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} BUY ${symbol}`);
-      try {
-        const order = await placeBitGetOrder(symbol, "buy", tradeSize, price);
+      console.log(`\n  ✅ ALL CONDITIONS MET — ${entryConfirm.reason}`);
+      const side = bias === "bearish" ? "sell" : "buy";
+
+      if (CONFIG.paperTrading) {
+        const { stopLoss, takeProfit } = calcSlTp(price, side);
+        const riskUSD = Math.abs(price - stopLoss) / price * tradeSize;
+        const rewardUSD = Math.abs(takeProfit - price) / price * tradeSize;
+        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol} ~$${tradeSize.toFixed(2)}`);
+        console.log(`     Entry:       $${price.toFixed(2)}`);
+        console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk $${riskUSD.toFixed(2)}`);
+        console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
+        console.log(`     R:R Ratio:   1:${CONFIG.rrRatio}`);
         logEntry.orderPlaced = true;
-        logEntry.orderId = order.orderId;
-        logEntry.stopLoss = order.stopLoss;
-        logEntry.takeProfit = order.takeProfit;
-        console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
-        console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
-      } catch (err) {
-        console.log(`  ❌ ORDER FAILED — ${err.message}`);
-        logEntry.error = err.message;
+        logEntry.orderId = `PAPER-${Date.now()}`;
+        logEntry.stopLoss = stopLoss;
+        logEntry.takeProfit = takeProfit;
+        logEntry.side = side;
+      } else {
+        console.log(`\n  🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
+        try {
+          const order = await placeBitGetOrder(symbol, side, tradeSize, price);
+          logEntry.orderPlaced = true;
+          logEntry.orderId = order.orderId;
+          logEntry.stopLoss = order.stopLoss;
+          logEntry.takeProfit = order.takeProfit;
+          logEntry.side = side;
+          console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
+          console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
+        } catch (err) {
+          console.log(`  ❌ ORDER FAILED — ${err.message}`);
+          logEntry.error = err.message;
+        }
       }
     }
   }
@@ -697,8 +880,28 @@ async function run() {
   console.log(`\nStrategy: ${strategyName}`);
   console.log(`Timeframe: ${CONFIG.timeframe}`);
 
+  // Load learning system
+  const learning = loadLearning();
+  console.log(`🧠 Learning: Win rate ${learning.winRate}% over ${learning.totalTrades} trades | RSI threshold: ${learning.rsiEntryThreshold} | VWAP proximity: ${learning.vwapProximityPct}%`);
+
   // Load log and check daily limits
   const log = loadLog();
+
+  // ── Check outcomes of open paper trades ──
+  const currentPrices = {};
+  for (const symbol of CONFIG.symbols) {
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+      const data = await res.json();
+      currentPrices[symbol] = parseFloat(data.price);
+    } catch { /* ignore */ }
+  }
+  const outcomesUpdated = updateTradeOutcomes(log, learning, currentPrices);
+  if (outcomesUpdated) {
+    saveLog(log);
+    saveLearning(learning);
+  }
+
   const withinLimits = checkTradeLimits(log);
   if (!withinLimits) {
     console.log("\nBot stopping — trade limits reached for today.");
@@ -708,12 +911,11 @@ async function run() {
   // Scan every symbol
   for (const symbol of CONFIG.symbols) {
     try {
-      const logEntry = await analyseSymbol(symbol, rules, log);
+      const logEntry = await analyseSymbol(symbol, rules, log, learning);
       if (logEntry) {
         log.trades.push(logEntry);
         saveLog(log);
         writeTradeCsv(logEntry);
-        // Stop if daily trade limit reached mid-scan
         if (!checkTradeLimits(log)) {
           console.log("\n⛔ Daily trade limit reached — stopping scan.");
           break;
@@ -722,8 +924,7 @@ async function run() {
     } catch (err) {
       console.log(`\n⚠️  Error scanning ${symbol}: ${err.message}`);
     }
-    // Small delay between symbols to avoid rate limits
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1200));
   }
 
   console.log(`\n${"═".repeat(57)}`);
