@@ -833,6 +833,41 @@ function generateTaxSummary() {
   console.log("─────────────────────────────────────────────────────────\n");
 }
 
+// ─── Dynamic Position Sizing ($10–$15 based on signal strength) ─────────────
+//
+//  Stronger signal = bigger position, weaker = smaller.
+//  Score is 0–5: lower-TF checks (0-4) + RSI depth bonus (0-1)
+//    ≥ 4.5  → $15  (4/4 lower TF + deep RSI)
+//    ≥ 3.5  → $12.50 (3-4/4 lower TF, normal RSI)
+//    < 3.5  → $10  (exactly 3/4, RSI just qualifying)
+
+function calcDynamicTradeSize(baseSize, entryConfirm, rsi3, bias, learning) {
+  const minSize = 10;
+  const maxSize = 15;
+  const midSize = 12.5;
+
+  const lowerTFScore = entryConfirm?.passCount ?? 3;
+  const rsiThreshold = learning.rsiEntryThreshold || 30;
+
+  // How far past the threshold is RSI? 0 = just barely, 1 = maximally deep
+  let rsiDepth = 0;
+  if (bias === "bullish" && rsi3 !== null && !isNaN(rsi3)) {
+    rsiDepth = Math.min(1, Math.max(0, (rsiThreshold - rsi3) / rsiThreshold));
+  } else if (bias === "bearish" && rsi3 !== null && !isNaN(rsi3)) {
+    const upper = 100 - rsiThreshold;
+    rsiDepth = Math.min(1, Math.max(0, (rsi3 - upper) / (100 - upper)));
+  }
+
+  const score = lowerTFScore + rsiDepth;
+
+  let size;
+  if (score >= 4.5)      size = maxSize;  // very strong signal
+  else if (score >= 3.5) size = midSize;  // normal signal
+  else                   size = minSize;  // weakest qualifying signal
+
+  return { size, score: parseFloat(score.toFixed(2)), lowerTFScore, rsiDepth: parseFloat(rsiDepth.toFixed(2)) };
+}
+
 // ─── Multi-Timeframe Entry Confirmation ─────────────────────────────────────
 
 async function confirmEntryOnLowerTF(symbol, bias, learning) {
@@ -983,14 +1018,20 @@ async function analyseSymbol(symbol, rules, log, learning) {
       logEntry.allPass = false;
       logEntry.blockedReason = entryConfirm.reason;
     } else {
+      // ── Dynamic sizing: $10-$15 based on signal strength ──
+      const sizing = calcDynamicTradeSize(tradeSize, entryConfirm, rsi3, bias, learning);
+      const finalTradeSize = sizing.size;
+      logEntry.tradeSize = finalTradeSize;
+
       console.log(`\n  ✅ ALL CONDITIONS MET — ${entryConfirm.reason}`);
+      console.log(`  💰 Signal strength: ${sizing.score}/5 → position size $${finalTradeSize} (LTF: ${sizing.lowerTFScore}/4, RSI depth: ${(sizing.rsiDepth * 100).toFixed(0)}%)`);
       const side = bias === "bearish" ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
         const { stopLoss, takeProfit } = calcSlTp(price, side);
-        const riskUSD = Math.abs(price - stopLoss) / price * tradeSize;
-        const rewardUSD = Math.abs(takeProfit - price) / price * tradeSize;
-        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol} ~$${tradeSize.toFixed(2)}`);
+        const riskUSD = Math.abs(price - stopLoss) / price * finalTradeSize;
+        const rewardUSD = Math.abs(takeProfit - price) / price * finalTradeSize;
+        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol} $${finalTradeSize}`);
         console.log(`     Entry:       $${price.toFixed(2)}`);
         console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk $${riskUSD.toFixed(2)}`);
         console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
@@ -1000,17 +1041,17 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.stopLoss = stopLoss;
         logEntry.takeProfit = takeProfit;
         logEntry.side = side;
-        logEntry.quantity = tradeSize / price;
+        logEntry.quantity = finalTradeSize / price;
       } else {
-        console.log(`\n  🔴 PLACING LIVE ORDER — $${tradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
+        console.log(`\n  🔴 PLACING LIVE ORDER — $${finalTradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
         try {
-          const order = await placeBitGetOrder(symbol, side, tradeSize, price);
+          const order = await placeBitGetOrder(symbol, side, finalTradeSize, price);
           logEntry.orderPlaced = true;
           logEntry.orderId = order.orderId;
           logEntry.stopLoss = order.stopLoss;
           logEntry.takeProfit = order.takeProfit;
           logEntry.side = side;
-          logEntry.quantity = tradeSize / price;
+          logEntry.quantity = finalTradeSize / price;
           console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
           console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
         } catch (err) {
