@@ -477,6 +477,19 @@ function calcOversoldStreak(candles, threshold = 10) {
   return streak;
 }
 
+// Consecutive overbought candles — how many 4H candles in a row has RSI(3) been > threshold?
+function calcOverboughtStreak(candles, threshold = 90) {
+  const closes = candles.map(c => c.close);
+  let streak = 0;
+  for (let i = candles.length - 1; i >= Math.max(0, candles.length - 20); i--) {
+    const slice = closes.slice(0, i + 1);
+    const rsi = calcRSI(slice, 3);
+    if (rsi !== null && !isNaN(rsi) && rsi > threshold) streak++;
+    else break;
+  }
+  return streak;
+}
+
 // VWAP — session-based, resets at midnight UTC
 function calcVWAP(candles) {
   const midnightUTC = new Date();
@@ -493,7 +506,7 @@ function calcVWAP(candles) {
 
 // ─── Safety Check ───────────────────────────────────────────────────────────
 
-function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rules, marketRegime) {
+function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, marketRegime) {
   const results = [];
 
   const check = (label, required, actual, pass) => {
@@ -510,26 +523,43 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rules, marketRegi
 
   // ── Market Regime Override ──────────────────────────────────────────────
   // EXTREME BOUNCE MODE: RSI(3) < 5 for 3+ consecutive candles
-  // → market is in selling exhaustion → look for LONG snap-back to VWAP
+  // → selling exhaustion → LONG snap-back to VWAP
   if (marketRegime?.mode === "extreme_bounce") {
     console.log(`  🔥 EXTREME BOUNCE MODE — RSI(3) exhausted for ${marketRegime.streak} candles`);
     console.log(`     Strategy: look for LONG snap-back to VWAP (mean reversion)\n`);
 
     check("RSI(3) in extreme exhaustion (< 5)",
       "< 5", rsi3.toFixed(2), rsi3 < 5);
-
     check("Price near or below VWAP (snap-back target above)",
       `≤ ${(vwap * 1.005).toFixed(2)}`, price.toFixed(2), price <= vwap * 1.005);
-
     check(`Price within 2% of VWAP (not too far to bounce)`,
       "< 2%", `${distFromVWAP.toFixed(2)}%`, distFromVWAP < 2.0);
-
     const volExhaustion = marketRegime.volumeTrend === "exhaustion";
     check("Volume drying up (sellers exhausted)",
       "exhaustion", marketRegime.volumeTrend, volExhaustion);
 
     const allPass = results.every(r => r.pass);
     return { results, allPass, bias: "extreme_bounce" };
+  }
+
+  // EXTREME RESISTANCE MODE: RSI(3) > 90 for 3+ consecutive candles
+  // → buying exhaustion → SHORT snap-back to VWAP
+  if (marketRegime?.mode === "extreme_resistance") {
+    console.log(`  🔻 EXTREME RESISTANCE MODE — RSI(3) overbought for ${marketRegime.streak} candles`);
+    console.log(`     Strategy: look for SHORT snap-back to VWAP (mean reversion)\n`);
+
+    check("RSI(3) in extreme overbought (> 90)",
+      "> 90", rsi3.toFixed(2), rsi3 > 90);
+    check("Price near or above VWAP (snap-back target below)",
+      `≥ ${(vwap * 0.995).toFixed(2)}`, price.toFixed(2), price >= vwap * 0.995);
+    check(`Price within 2% of VWAP (not too far to snap back)`,
+      "< 2%", `${distFromVWAP.toFixed(2)}%`, distFromVWAP < 2.0);
+    const volExhaustion = marketRegime.volumeTrend === "exhaustion";
+    check("Volume drying up (buyers exhausted)",
+      "exhaustion", marketRegime.volumeTrend, volExhaustion);
+
+    const allPass = results.every(r => r.pass);
+    return { results, allPass, bias: "extreme_resistance" };
   }
 
   // ── Standard Momentum Mode ──────────────────────────────────────────────
@@ -543,30 +573,48 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rules, marketRegi
 
     check("Price above VWAP (buyers in control)",
       `> ${vwap.toFixed(2)}`, price.toFixed(2), price > vwap);
-
     check("Price above EMA(20) + EMA(20) > EMA(50)",
       `> ${ema20.toFixed(2)}`, price.toFixed(2), price > ema20 && ema20AboveEma50);
-
     check(`RSI(3) below ${rsiThreshold} (pullback in uptrend)`,
       `< ${rsiThreshold}`, rsi3.toFixed(2), rsi3 < rsiThreshold);
-
     check(`Price within ${vwapProximity}% of VWAP`,
       `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
 
   } else if (bearishBias) {
-    console.log(`  Bias: BEARISH — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
+    // Two SHORT entry modes:
+    // A) Short the bounce  — RSI(3) bounced to >70, rejecting → fade the bounce
+    // B) Momentum short    — RSI(3) < 50 + RSI(14) < 50 → short the trend continuation
+    const shortBounce    = rsi3 > (100 - rsiThreshold);          // e.g. RSI(3) > 70
+    const shortMomentum  = rsi3 < 50 && (rsi14 !== null && rsi14 < 50); // trend continuation
 
-    check("Price below VWAP (sellers in control)",
-      `< ${vwap.toFixed(2)}`, price.toFixed(2), price < vwap);
+    if (shortBounce) {
+      console.log(`  Bias: BEARISH 📉 (bounce rejection) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
+      check("Price below VWAP (sellers in control)",
+        `< ${vwap.toFixed(2)}`, price.toFixed(2), price < vwap);
+      check("EMA(20) < EMA(50) — downtrend confirmed",
+        `< ${ema50.toFixed(2)}`, ema20.toFixed(2), !ema20AboveEma50);
+      check(`RSI(3) overbought bounce (> ${100 - rsiThreshold}) — short the rejection`,
+        `> ${100 - rsiThreshold}`, rsi3.toFixed(2), rsi3 > (100 - rsiThreshold));
+      check(`Price within ${vwapProximity}% of VWAP`,
+        `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
 
-    check("Price below EMA(20) + EMA(20) < EMA(50)",
-      `< ${ema20.toFixed(2)}`, price.toFixed(2), price < ema20 && !ema20AboveEma50);
+    } else if (shortMomentum) {
+      console.log(`  Bias: BEARISH 📉 (momentum short) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
+      check("Price below VWAP (sellers in control)",
+        `< ${vwap.toFixed(2)}`, price.toFixed(2), price < vwap);
+      check("EMA(20) < EMA(50) — downtrend confirmed",
+        `< ${ema50.toFixed(2)}`, ema20.toFixed(2), !ema20AboveEma50);
+      check("RSI(3) below 50 — momentum confirming short",
+        `< 50`, rsi3.toFixed(2), rsi3 < 50);
+      check("RSI(14) below 50 — medium-term trend is bearish",
+        `< 50`, (rsi14 !== null ? rsi14.toFixed(2) : "N/A"), rsi14 !== null && rsi14 < 50);
+      check(`Price within ${vwapProximity}% of VWAP`,
+        `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
 
-    check(`RSI(3) above ${100 - rsiThreshold} (bounce in downtrend to short)`,
-      `> ${100 - rsiThreshold}`, rsi3.toFixed(2), rsi3 > (100 - rsiThreshold));
-
-    check(`Price within ${vwapProximity}% of VWAP`,
-      `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+    } else {
+      console.log(`  Bias: BEARISH 📉 — RSI(3) ${rsi3.toFixed(1)} in no-trade zone (need <50 or >70)\n`);
+      results.push({ label: "RSI entry signal", required: "< 50 or > 70", actual: rsi3.toFixed(2), pass: false });
+    }
 
   } else {
     console.log(`  Bias: NEUTRAL — EMA20 $${ema20.toFixed(2)} | EMA50 $${ema50.toFixed(2)} | No clear edge\n`);
@@ -1047,21 +1095,29 @@ async function analyseSymbol(symbol, rules, log, learning) {
   const volTrend = calcVolumeTrend(candles, 5);
 
   // ── Market Regime Detection ──────────────────────────────────────────────
-  // Extreme bounce mode: RSI(3) stuck below 5 for 3+ candles = selling exhaustion
-  const oversoldStreak = calcOversoldStreak(candles, 5);
-  const extremeBounce  = oversoldStreak >= 3 && rsi3 < 5;
-  const marketRegime   = extremeBounce
-    ? { mode: "extreme_bounce", streak: oversoldStreak, volumeTrend: volTrend.trend }
+  // Extreme bounce:     RSI(3) < 5  for 3+ candles = selling exhaustion → LONG
+  // Extreme resistance: RSI(3) > 90 for 3+ candles = buying exhaustion  → SHORT
+  const oversoldStreak   = calcOversoldStreak(candles, 5);
+  const overboughtStreak = calcOverboughtStreak(candles, 90);
+  const extremeBounce    = oversoldStreak >= 3 && rsi3 < 5;
+  const extremeResist    = overboughtStreak >= 3 && rsi3 > 90;
+  const marketRegime     = extremeBounce
+    ? { mode: "extreme_bounce",     streak: oversoldStreak,   volumeTrend: volTrend.trend }
+    : extremeResist
+    ? { mode: "extreme_resistance", streak: overboughtStreak, volumeTrend: volTrend.trend }
     : { mode: "standard", streak: 0, volumeTrend: volTrend.trend };
 
   const trendPct = ema50 > 0 ? ((ema20 - ema50) / ema50 * 100).toFixed(2) : "0";
+  const regimeLabel = extremeBounce   ? `🔥 EXTREME BOUNCE (oversold ${oversoldStreak} candles)`
+                    : extremeResist   ? `🔻 EXTREME RESISTANCE (overbought ${overboughtStreak} candles)`
+                    : "📊 Standard";
 
   console.log(`  Price:    $${price.toFixed(2)}`);
   console.log(`  EMA8/20/50: $${ema8.toFixed(2)} / $${ema20.toFixed(2)} / $${ema50.toFixed(2)}  (trend: ${parseFloat(trendPct) > 0 ? "+" : ""}${trendPct}%)`);
   console.log(`  VWAP:     $${vwap ? vwap.toFixed(2) : "N/A"}`);
   console.log(`  RSI(3):   ${rsi3 !== null && !isNaN(rsi3) ? rsi3.toFixed(2) : "N/A"}  |  RSI(14): ${rsi14 !== null && !isNaN(rsi14) ? rsi14.toFixed(2) : "N/A"}`);
   console.log(`  Volume:   ${volTrend.trend} (ratio ${volTrend.ratio}x vs prior 5 candles)`);
-  console.log(`  Regime:   ${extremeBounce ? `🔥 EXTREME BOUNCE (oversold ${oversoldStreak} candles)` : "📊 Standard"}`);
+  console.log(`  Regime:   ${regimeLabel}`);
   console.log(`  Size:     $${tradeSize.toFixed(2)}`);
 
   if (vwap === null || vwap === undefined || isNaN(vwap) ||
@@ -1078,7 +1134,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
   };
 
   const { results, allPass, bias } = runSafetyCheck(
-    price, ema8, ema20, ema50, vwap, rsi3, adaptedRules, marketRegime
+    price, ema8, ema20, ema50, vwap, rsi3, rsi14, adaptedRules, marketRegime
   );
 
   console.log(`\n  Safety Check (RSI threshold: ${adaptedRules._rsiThreshold}, VWAP proximity: ${adaptedRules._vwapProximity}%):`);
@@ -1132,7 +1188,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
       );
       console.log(`     ${"─".repeat(44)}`)
       console.log(`     Total score : ${conf.score}/100 → size $${finalTradeSize}`);
-      const side = bias === "bearish" ? "sell" : "buy";
+      const side = (bias === "bearish" || bias === "extreme_resistance") ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
         const { stopLoss, takeProfit } = calcSlTp(price, side);
