@@ -117,17 +117,23 @@ function saveLog(log) {
 // ─── Learning System ─────────────────────────────────────────────────────────
 
 function loadLearning() {
-  if (!existsSync(LEARN_FILE)) return {
+  const defaults = {
     totalTrades: 0, wins: 0, losses: 0, winRate: 0,
     // Adaptive thresholds — bot adjusts these based on performance
     rsiEntryThreshold: 30,        // Default: RSI < 30 to enter long
     vwapProximityPct: 1.5,        // Default: price within 1.5% of VWAP
     entryTF: "15m",               // Default lower TF for entry timing
     symbolStats: {},              // Per-symbol win/loss tracking
+    symbolCooldowns: {},          // Per-symbol cooldown after consecutive losses
+    tradeLessons: [],             // Post-mortem lessons from every closed trade
+    extremeBounceMinStreak: 3,    // Min oversold streak to trigger bounce mode
     lastUpdated: null,
     notes: []
   };
-  return JSON.parse(readFileSync(LEARN_FILE, "utf8"));
+  if (!existsSync(LEARN_FILE)) return defaults;
+  const saved = JSON.parse(readFileSync(LEARN_FILE, "utf8"));
+  // Merge defaults for any missing keys (backwards compat)
+  return { ...defaults, ...saved };
 }
 
 function saveLearning(learning) {
@@ -173,6 +179,7 @@ function updateTradeOutcomes(log, learning, currentPrices) {
       console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
       console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
       writeExitCsv(trade, log);
+      recordTradeLesson(trade, log, learning);
       updated = true;
     }
   }
@@ -219,6 +226,132 @@ function adaptThresholds(log, learning) {
     console.log(`\n  🧠 STRATEGY ADAPTED:`);
     note.forEach(n => console.log(`     → ${n}`));
   }
+}
+
+// ─── Post-Mortem Lesson Recorder ─────────────────────────────────────────────
+//
+// Called after every trade closes (SL/TP hit or early exit).
+// Analyses what happened, records a lesson, and applies adaptive changes.
+//
+function recordTradeLesson(trade, log, learning) {
+  if (!trade.outcome || trade._lessonRecorded) return;
+  trade._lessonRecorded = true;
+
+  const symbol   = trade.symbol;
+  const outcome  = trade.outcome;
+  const regime   = trade.marketRegime?.mode || trade.indicators?.regime || "standard";
+  const volAtEntry = trade.indicators?.volumeTrend?.trend || "unknown";
+  const entryRSI   = trade.indicators?.rsi3 != null ? parseFloat(trade.indicators.rsi3.toFixed(2)) : null;
+  const pnlPct     = parseFloat(trade.pnlPct || "0");
+
+  // ─── Determine the lesson ────────────────────────────────────────────────
+  let lesson = "";
+  let adaptation = "";
+  let severity = "info"; // info | warning | critical
+
+  const isLoss    = outcome === "LOSS" || outcome === "SL_HIT" || outcome === "EARLY_EXIT_LOSS";
+  const isWin     = outcome === "WIN" || outcome === "TP_HIT";
+  const isEarlyWin = outcome === "EARLY_EXIT_PROFIT";
+
+  if (isLoss) {
+    severity = "warning";
+
+    if (regime === "extreme_bounce" && volAtEntry !== "exhaustion") {
+      lesson = `${symbol}: Bounce entry WITHOUT volume exhaustion — sellers not done, price continued down`;
+      adaptation = "Volume exhaustion is mandatory for extreme bounce entries — already enforced";
+      severity = "critical";
+    } else if (regime === "extreme_bounce") {
+      lesson = `${symbol}: Bounce failed despite volume exhaustion — downtrend too strong or streak too short`;
+      adaptation = `Consider raising min oversold streak from ${learning.extremeBounceMinStreak} to ${learning.extremeBounceMinStreak + 1}`;
+      // Auto-adapt: if we have 2+ bounce losses, raise the streak requirement
+      const recentBounceLosses = (learning.tradeLessons || [])
+        .filter(l => l.regime === "extreme_bounce" && (l.outcome.includes("LOSS")))
+        .slice(-5).length;
+      if (recentBounceLosses >= 2 && learning.extremeBounceMinStreak < 5) {
+        learning.extremeBounceMinStreak = Math.min(5, learning.extremeBounceMinStreak + 1);
+        adaptation += ` ✅ Auto-adapted: min streak raised to ${learning.extremeBounceMinStreak}`;
+      }
+    } else if (regime === "standard") {
+      lesson = `${symbol}: Momentum trade failed — ${trade.exitReason || "setup broke down after entry"}`;
+      adaptation = "Review EMA alignment and volume at entry before next trade on this symbol";
+    } else {
+      lesson = `${symbol}: Trade closed as loss (${outcome}) — ${trade.exitReason || "no specific reason"}`;
+      adaptation = "Investigate market conditions at time of entry";
+    }
+
+    // ── Per-symbol cooldown after consecutive losses ────────────────────
+    if (!learning.symbolCooldowns) learning.symbolCooldowns = {};
+    if (!learning.symbolCooldowns[symbol]) {
+      learning.symbolCooldowns[symbol] = { consecutiveLosses: 0, cooldownUntil: null };
+    }
+    learning.symbolCooldowns[symbol].consecutiveLosses =
+      (learning.symbolCooldowns[symbol].consecutiveLosses || 0) + 1;
+
+    const consec = learning.symbolCooldowns[symbol].consecutiveLosses;
+    if (consec >= 2) {
+      const cooldownHrs = consec >= 3 ? 6 : 3;
+      const cooldownUntil = new Date(Date.now() + cooldownHrs * 60 * 60 * 1000).toISOString();
+      learning.symbolCooldowns[symbol].cooldownUntil = cooldownUntil;
+      adaptation += ` | ⏸️ ${symbol} on ${cooldownHrs}hr cooldown (${consec} consecutive losses)`;
+      console.log(`  ⏸️  ${symbol} cooldown — ${cooldownHrs} hours (${consec} consecutive losses)`);
+    }
+
+  } else if (isEarlyWin) {
+    // Was early exit optimal? Compare pnl vs potential TP
+    const lev = trade.leverage || CONFIG.leverage || 1;
+    const tpPotentialPct = Math.abs((trade.takeProfit - trade.price) / trade.price * 100 * lev);
+    const capturedPct    = tpPotentialPct > 0 ? (pnlPct / tpPotentialPct * 100) : 0;
+
+    if (capturedPct < 25) {
+      lesson = `${symbol}: Early exit captured only ${capturedPct.toFixed(0)}% of TP potential (${pnlPct.toFixed(1)}% vs ${tpPotentialPct.toFixed(1)}% target) — exited too early`;
+      adaptation = "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied";
+      severity = "warning";
+    } else {
+      lesson = `${symbol}: Clean early exit — captured ${capturedPct.toFixed(0)}% of TP potential (${pnlPct.toFixed(1)}%)`;
+      adaptation = "Exit timing was reasonable";
+    }
+    // Reset consecutive losses on any profit
+    if (learning.symbolCooldowns?.[symbol]) {
+      learning.symbolCooldowns[symbol].consecutiveLosses = 0;
+      learning.symbolCooldowns[symbol].cooldownUntil = null;
+    }
+
+  } else if (isWin) {
+    const lev = trade.leverage || CONFIG.leverage || 1;
+    const gainPct = Math.abs((trade.takeProfit - trade.price) / trade.price * 100 * lev);
+    lesson = `${symbol}: ✅ Full TP hit +${gainPct.toFixed(1)}% — ${regime} setup worked perfectly`;
+    adaptation = `Reinforce: ${regime} entries work well on ${symbol}`;
+    if (learning.symbolCooldowns?.[symbol]) {
+      learning.symbolCooldowns[symbol].consecutiveLosses = 0;
+      learning.symbolCooldowns[symbol].cooldownUntil = null;
+    }
+  }
+
+  // ─── Store the lesson ────────────────────────────────────────────────────
+  if (!learning.tradeLessons) learning.tradeLessons = [];
+  learning.tradeLessons.push({
+    date:        new Date().toISOString().slice(0, 10),
+    time:        new Date().toISOString().slice(11, 19),
+    symbol,
+    outcome,
+    regime,
+    volumeAtEntry: volAtEntry,
+    entryRSI,
+    pnlPct:      trade.pnlPct,
+    lesson,
+    adaptation,
+    severity
+  });
+  // Keep only last 50 lessons
+  if (learning.tradeLessons.length > 50) {
+    learning.tradeLessons = learning.tradeLessons.slice(-50);
+  }
+
+  // ─── Print to console ────────────────────────────────────────────────────
+  const icon = severity === "critical" ? "🔴" : severity === "warning" ? "🟡" : "🟢";
+  console.log(`\n  📚 LESSON [${icon}] — ${symbol} (${outcome})`);
+  console.log(`     📌 ${lesson}`);
+  console.log(`     ⚙️  ${adaptation}`);
 }
 
 function countTodaysTrades(log) {
@@ -383,6 +516,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
         writeExitCsv(trade, log);
+        recordTradeLesson(trade, log, learning);
 
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
@@ -1157,8 +1291,9 @@ async function analyseSymbol(symbol, rules, log, learning) {
   // Extreme resistance: RSI(3) > 90 for 3+ candles = buying exhaustion  → SHORT
   const oversoldStreak   = calcOversoldStreak(candles, 5);
   const overboughtStreak = calcOverboughtStreak(candles, 90);
-  const extremeBounce    = oversoldStreak >= 3 && rsi3 < 5;
-  const extremeResist    = overboughtStreak >= 3 && rsi3 > 90;
+  const bounceMinStreak  = learning?.extremeBounceMinStreak || 3;  // auto-adapts after bounce failures
+  const extremeBounce    = oversoldStreak >= bounceMinStreak && rsi3 < 5;
+  const extremeResist    = overboughtStreak >= bounceMinStreak && rsi3 > 90;
   const marketRegime     = extremeBounce
     ? { mode: "extreme_bounce",     streak: oversoldStreak,   volumeTrend: volTrend.trend }
     : extremeResist
@@ -1488,6 +1623,19 @@ async function run() {
 
   // Scan every symbol
   for (const symbol of CONFIG.symbols) {
+    // ── Symbol cooldown check (2+ consecutive losses → temp skip) ──────────
+    const cd = learning.symbolCooldowns?.[symbol];
+    if (cd?.cooldownUntil && new Date() < new Date(cd.cooldownUntil)) {
+      const minsLeft = Math.round((new Date(cd.cooldownUntil) - new Date()) / 60000);
+      console.log(`\n  ⏸️  ${symbol} — on cooldown for ${minsLeft} more min (${cd.consecutiveLosses} consecutive losses)`);
+      continue;
+    } else if (cd?.cooldownUntil && new Date() >= new Date(cd.cooldownUntil)) {
+      // Cooldown expired — reset
+      learning.symbolCooldowns[symbol].cooldownUntil = null;
+      learning.symbolCooldowns[symbol].consecutiveLosses = 0;
+      console.log(`\n  ✅ ${symbol} — cooldown lifted, back in rotation`);
+    }
+
     try {
       const logEntry = await analyseSymbol(symbol, rules, log, learning);
       if (logEntry) {
