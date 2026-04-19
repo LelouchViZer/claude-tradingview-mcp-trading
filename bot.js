@@ -270,27 +270,85 @@ async function checkEarlyExits(log, learning, currentPrices) {
       const toSL       = Math.abs(currentPrice - trade.stopLoss);
       const slProgress = totalRange > 0 ? (totalRange - toSL) / totalRange : 0;
 
-      if (tradeSide === "buy") {
-        if (currentPrice < vwap && currentPrice < ema20) {
-          shouldExit = true;
-          exitReason = "Setup invalidated — price fell below both VWAP and EMA(20)";
-        } else if (currentPrice < vwap) {
-          shouldExit = true;
-          exitReason = "Momentum fading — price dropped back below VWAP";
-        } else if (slProgress >= CONFIG.earlyExitSlPct && rsi3 < 30) {
-          shouldExit = true;
-          exitReason = `${(slProgress * 100).toFixed(0)}% of the way to SL, RSI(3)=${rsi3.toFixed(1)} — no recovery signal`;
+      // ── Trailing stop: protect profit once trade moves in our favour ──────
+      // At 50% to TP → move SL to breakeven (entry price)
+      // At 75% to TP → lock in +1% on position  (never lose a big winner)
+      const tpRange     = Math.abs(trade.takeProfit - trade.price);
+      const toTP        = Math.abs(trade.takeProfit - currentPrice);
+      const tpProgress  = tpRange > 0 ? (tpRange - toTP) / tpRange : 0;
+      const lev         = trade.leverage || CONFIG.leverage || 1;
+      const currentPnlPct = tradeSide === "buy"
+        ? (currentPrice - trade.price) / trade.price * 100 * lev
+        : (trade.price - currentPrice) / trade.price * 100 * lev;
+
+      if (tpProgress >= 0.75 && trade.stopLoss) {
+        // Lock in +1% of margin above entry
+        const lockedSL = tradeSide === "buy"
+          ? trade.price * (1 + 0.01 / lev)
+          : trade.price * (1 - 0.01 / lev);
+        const improved = tradeSide === "buy"
+          ? lockedSL > trade.stopLoss
+          : lockedSL < trade.stopLoss;
+        if (improved) {
+          console.log(`  🔒 Trailing SL updated → locked in +1% (75% to TP) | New SL: $${lockedSL.toFixed(2)}`);
+          trade.stopLoss = parseFloat(lockedSL.toFixed(2));
         }
+      } else if (tpProgress >= 0.50 && trade.stopLoss) {
+        // Move SL to breakeven
+        const improved = tradeSide === "buy"
+          ? trade.price > trade.stopLoss
+          : trade.price < trade.stopLoss;
+        if (improved) {
+          console.log(`  🔒 Trailing SL → moved to breakeven $${trade.price} (50% to TP)`);
+          trade.stopLoss = trade.price;
+        }
+      }
+
+      // ── Early exit: stricter rules — require CONFIRMED reversal signals ──
+      // Single VWAP dip = normal noise, not an exit signal.
+      // Exit only when MULTIPLE conditions confirm the setup is broken.
+      if (tradeSide === "buy") {
+        const hardInvalidation = currentPrice < vwap && currentPrice < ema20 && rsi3 < 30;
+        const approachingSL    = slProgress >= CONFIG.earlyExitSlPct && rsi3 < 30;
+
+        if (hardInvalidation || approachingSL) {
+          // Require 2 consecutive bad scans before exiting (avoid one-candle fakeouts)
+          trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
+          if (trade._earlyExitWarnings >= 2) {
+            shouldExit = true;
+            exitReason = hardInvalidation
+              ? `Setup invalidated — price below VWAP, EMA(20) AND RSI(3)=${rsi3.toFixed(1)} (confirmed over 2 scans)`
+              : `${(slProgress * 100).toFixed(0)}% to SL, RSI(3)=${rsi3.toFixed(1)} — no recovery (confirmed)`;
+          } else {
+            console.log(`  ⚠️  ${trade.symbol} LONG — weak signal (scan ${trade._earlyExitWarnings}/2) | RSI: ${rsi3.toFixed(1)} | Watching next scan...`);
+          }
+        } else {
+          // Conditions improved — reset warning counter
+          if (trade._earlyExitWarnings > 0) {
+            console.log(`  ✅ ${trade.symbol} LONG — warning cleared, setup intact`);
+            trade._earlyExitWarnings = 0;
+          }
+        }
+
       } else if (tradeSide === "sell") {
-        if (currentPrice > vwap && currentPrice > ema20) {
-          shouldExit = true;
-          exitReason = "Setup invalidated — price rose above both VWAP and EMA(20)";
-        } else if (currentPrice > vwap) {
-          shouldExit = true;
-          exitReason = "Momentum fading — price bounced back above VWAP";
-        } else if (slProgress >= CONFIG.earlyExitSlPct && rsi3 > 70) {
-          shouldExit = true;
-          exitReason = `${(slProgress * 100).toFixed(0)}% of the way to SL, RSI(3)=${rsi3.toFixed(1)} — no reversal signal`;
+        const hardInvalidation = currentPrice > vwap && currentPrice > ema20 && rsi3 > 70;
+        const approachingSL    = slProgress >= CONFIG.earlyExitSlPct && rsi3 > 70;
+
+        if (hardInvalidation || approachingSL) {
+          trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
+          if (trade._earlyExitWarnings >= 2) {
+            shouldExit = true;
+            exitReason = hardInvalidation
+              ? `Setup invalidated — price above VWAP, EMA(20) AND RSI(3)=${rsi3.toFixed(1)} (confirmed over 2 scans)`
+              : `${(slProgress * 100).toFixed(0)}% to SL, RSI(3)=${rsi3.toFixed(1)} — no reversal (confirmed)`;
+          } else {
+            console.log(`  ⚠️  ${trade.symbol} SHORT — weak signal (scan ${trade._earlyExitWarnings}/2) | RSI: ${rsi3.toFixed(1)} | Watching next scan...`);
+          }
+        } else {
+          if (trade._earlyExitWarnings > 0) {
+            console.log(`  ✅ ${trade.symbol} SHORT — warning cleared, setup intact`);
+            trade._earlyExitWarnings = 0;
+          }
         }
       }
 
