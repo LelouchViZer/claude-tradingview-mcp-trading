@@ -257,7 +257,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
     try {
       const candles = await fetchCandles(trade.symbol, CONFIG.timeframe, 500);
       const closes  = candles.map(c => c.close);
-      const ema8    = calcEMA(closes, 8);
+      const ema20   = calcEMA(closes, 20);
       const vwap    = calcVWAP(candles);
       const rsi3    = calcRSI(closes, 3);
 
@@ -271,9 +271,9 @@ async function checkEarlyExits(log, learning, currentPrices) {
       const slProgress = totalRange > 0 ? (totalRange - toSL) / totalRange : 0;
 
       if (tradeSide === "buy") {
-        if (currentPrice < vwap && currentPrice < ema8) {
+        if (currentPrice < vwap && currentPrice < ema20) {
           shouldExit = true;
-          exitReason = "Setup invalidated — price fell below both VWAP and EMA(8)";
+          exitReason = "Setup invalidated — price fell below both VWAP and EMA(20)";
         } else if (currentPrice < vwap) {
           shouldExit = true;
           exitReason = "Momentum fading — price dropped back below VWAP";
@@ -282,9 +282,9 @@ async function checkEarlyExits(log, learning, currentPrices) {
           exitReason = `${(slProgress * 100).toFixed(0)}% of the way to SL, RSI(3)=${rsi3.toFixed(1)} — no recovery signal`;
         }
       } else if (tradeSide === "sell") {
-        if (currentPrice > vwap && currentPrice > ema8) {
+        if (currentPrice > vwap && currentPrice > ema20) {
           shouldExit = true;
-          exitReason = "Setup invalidated — price rose above both VWAP and EMA(8)";
+          exitReason = "Setup invalidated — price rose above both VWAP and EMA(20)";
         } else if (currentPrice > vwap) {
           shouldExit = true;
           exitReason = "Momentum fading — price bounced back above VWAP";
@@ -452,6 +452,31 @@ function calcRSI(closes, period = 14) {
   return 100 - 100 / (1 + rs);
 }
 
+// RSI(14) — standard momentum indicator for trend context
+function calcRSI14(closes) { return calcRSI(closes, 14); }
+
+// Volume trend — is volume increasing or decreasing over last N candles?
+function calcVolumeTrend(candles, period = 5) {
+  if (candles.length < period * 2) return { trend: "unknown", ratio: 1 };
+  const recent = candles.slice(-period).reduce((s, c) => s + c.volume, 0) / period;
+  const prior  = candles.slice(-period * 2, -period).reduce((s, c) => s + c.volume, 0) / period;
+  const ratio  = prior > 0 ? recent / prior : 1;
+  return { trend: ratio < 0.7 ? "exhaustion" : ratio > 1.3 ? "surging" : "normal", ratio: parseFloat(ratio.toFixed(2)) };
+}
+
+// Consecutive oversold candles — how many 4H candles in a row has RSI(3) been < threshold?
+function calcOversoldStreak(candles, threshold = 10) {
+  const closes = candles.map(c => c.close);
+  let streak = 0;
+  for (let i = candles.length - 1; i >= Math.max(0, candles.length - 20); i--) {
+    const slice = closes.slice(0, i + 1);
+    const rsi = calcRSI(slice, 3);
+    if (rsi !== null && !isNaN(rsi) && rsi < threshold) streak++;
+    else break;
+  }
+  return streak;
+}
+
 // VWAP — session-based, resets at midnight UTC
 function calcVWAP(candles) {
   const midnightUTC = new Date();
@@ -468,103 +493,87 @@ function calcVWAP(candles) {
 
 // ─── Safety Check ───────────────────────────────────────────────────────────
 
-function runSafetyCheck(price, ema8, vwap, rsi3, rules) {
+function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rules, marketRegime) {
   const results = [];
 
   const check = (label, required, actual, pass) => {
     results.push({ label, required, actual, pass });
-    const icon = pass ? "✅" : "🚫";
-    console.log(`  ${icon} ${label}`);
+    console.log(`  ${pass ? "✅" : "🚫"} ${label}`);
     console.log(`     Required: ${required} | Actual: ${actual}`);
   };
 
   console.log("\n── Safety Check ─────────────────────────────────────────\n");
 
-  // Use adaptive thresholds if available
-  const rsiThreshold = rules._rsiThreshold || 30;
+  const rsiThreshold  = rules._rsiThreshold  || 30;
   const vwapProximity = rules._vwapProximity || 1.5;
+  const distFromVWAP  = Math.abs((price - vwap) / vwap) * 100;
 
-  // Determine bias first
-  const bullishBias = price > vwap && price > ema8;
-  const bearishBias = price < vwap && price < ema8;
+  // ── Market Regime Override ──────────────────────────────────────────────
+  // EXTREME BOUNCE MODE: RSI(3) < 5 for 3+ consecutive candles
+  // → market is in selling exhaustion → look for LONG snap-back to VWAP
+  if (marketRegime?.mode === "extreme_bounce") {
+    console.log(`  🔥 EXTREME BOUNCE MODE — RSI(3) exhausted for ${marketRegime.streak} candles`);
+    console.log(`     Strategy: look for LONG snap-back to VWAP (mean reversion)\n`);
 
-  if (bullishBias) {
-    console.log("  Bias: BULLISH — checking long entry conditions\n");
+    check("RSI(3) in extreme exhaustion (< 5)",
+      "< 5", rsi3.toFixed(2), rsi3 < 5);
 
-    // 1. Price above VWAP
-    check(
-      "Price above VWAP (buyers in control)",
-      `> ${vwap.toFixed(2)}`,
-      price.toFixed(2),
-      price > vwap,
-    );
+    check("Price near or below VWAP (snap-back target above)",
+      `≤ ${(vwap * 1.005).toFixed(2)}`, price.toFixed(2), price <= vwap * 1.005);
 
-    // 2. Price above EMA(8)
-    check(
-      "Price above EMA(8) (uptrend confirmed)",
-      `> ${ema8.toFixed(2)}`,
-      price.toFixed(2),
-      price > ema8,
-    );
+    check(`Price within 2% of VWAP (not too far to bounce)`,
+      "< 2%", `${distFromVWAP.toFixed(2)}%`, distFromVWAP < 2.0);
 
-    // 3. RSI(3) pullback — uses adaptive threshold
-    check(
-      `RSI(3) below ${rsiThreshold} (snap-back setup in uptrend)`,
-      `< ${rsiThreshold}`,
-      rsi3.toFixed(2),
-      rsi3 < rsiThreshold,
-    );
+    const volExhaustion = marketRegime.volumeTrend === "exhaustion";
+    check("Volume drying up (sellers exhausted)",
+      "exhaustion", marketRegime.volumeTrend, volExhaustion);
 
-    // 4. Not overextended from VWAP — uses adaptive proximity
-    const distFromVWAP = Math.abs((price - vwap) / vwap) * 100;
-    check(
-      `Price within ${vwapProximity}% of VWAP (not overextended)`,
-      `< ${vwapProximity}%`,
-      `${distFromVWAP.toFixed(2)}%`,
-      distFromVWAP < vwapProximity,
-    );
-  } else if (bearishBias) {
-    console.log("  Bias: BEARISH — checking short entry conditions\n");
-
-    check(
-      "Price below VWAP (sellers in control)",
-      `< ${vwap.toFixed(2)}`,
-      price.toFixed(2),
-      price < vwap,
-    );
-
-    check(
-      "Price below EMA(8) (downtrend confirmed)",
-      `< ${ema8.toFixed(2)}`,
-      price.toFixed(2),
-      price < ema8,
-    );
-
-    check(
-      `RSI(3) above ${100 - rsiThreshold} (reversal setup in downtrend)`,
-      `> ${100 - rsiThreshold}`,
-      rsi3.toFixed(2),
-      rsi3 > (100 - rsiThreshold),
-    );
-
-    const distFromVWAP = Math.abs((price - vwap) / vwap) * 100;
-    check(
-      `Price within ${vwapProximity}% of VWAP (not overextended)`,
-      `< ${vwapProximity}%`,
-      `${distFromVWAP.toFixed(2)}%`,
-      distFromVWAP < vwapProximity,
-    );
-  } else {
-    console.log("  Bias: NEUTRAL — no clear direction. No trade.\n");
-    results.push({
-      label: "Market bias",
-      required: "Bullish or bearish",
-      actual: "Neutral",
-      pass: false,
-    });
+    const allPass = results.every(r => r.pass);
+    return { results, allPass, bias: "extreme_bounce" };
   }
 
-  const allPass = results.every((r) => r.pass);
+  // ── Standard Momentum Mode ──────────────────────────────────────────────
+  // Trend direction from EMA stack: 20 vs 50 is more reliable than EMA8 alone
+  const ema20AboveEma50 = ema20 > ema50;
+  const bullishBias = price > vwap && price > ema20 && ema20AboveEma50;
+  const bearishBias = price < vwap && price < ema20 && !ema20AboveEma50;
+
+  if (bullishBias) {
+    console.log(`  Bias: BULLISH — EMA20 $${ema20.toFixed(2)} > EMA50 $${ema50.toFixed(2)}\n`);
+
+    check("Price above VWAP (buyers in control)",
+      `> ${vwap.toFixed(2)}`, price.toFixed(2), price > vwap);
+
+    check("Price above EMA(20) + EMA(20) > EMA(50)",
+      `> ${ema20.toFixed(2)}`, price.toFixed(2), price > ema20 && ema20AboveEma50);
+
+    check(`RSI(3) below ${rsiThreshold} (pullback in uptrend)`,
+      `< ${rsiThreshold}`, rsi3.toFixed(2), rsi3 < rsiThreshold);
+
+    check(`Price within ${vwapProximity}% of VWAP`,
+      `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+
+  } else if (bearishBias) {
+    console.log(`  Bias: BEARISH — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
+
+    check("Price below VWAP (sellers in control)",
+      `< ${vwap.toFixed(2)}`, price.toFixed(2), price < vwap);
+
+    check("Price below EMA(20) + EMA(20) < EMA(50)",
+      `< ${ema20.toFixed(2)}`, price.toFixed(2), price < ema20 && !ema20AboveEma50);
+
+    check(`RSI(3) above ${100 - rsiThreshold} (bounce in downtrend to short)`,
+      `> ${100 - rsiThreshold}`, rsi3.toFixed(2), rsi3 > (100 - rsiThreshold));
+
+    check(`Price within ${vwapProximity}% of VWAP`,
+      `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+
+  } else {
+    console.log(`  Bias: NEUTRAL — EMA20 $${ema20.toFixed(2)} | EMA50 $${ema50.toFixed(2)} | No clear edge\n`);
+    results.push({ label: "Market bias", required: "Bullish or bearish", actual: "Neutral", pass: false });
+  }
+
+  const allPass = results.every(r => r.pass);
   const bias = bullishBias ? "bullish" : bearishBias ? "bearish" : "neutral";
   return { results, allPass, bias };
 }
@@ -989,18 +998,34 @@ async function analyseSymbol(symbol, rules, log, learning) {
 
   // Fetch candles
   const candles = await fetchCandles(symbol, CONFIG.timeframe, 500);
-  const closes = candles.map((c) => c.close);
-  const price = closes[closes.length - 1];
+  const closes  = candles.map(c => c.close);
+  const price   = closes[closes.length - 1];
 
-  const ema8 = calcEMA(closes, 8);
-  const vwap = calcVWAP(candles);
-  const rsi3 = calcRSI(closes, 3);
+  const ema8  = calcEMA(closes, 8);
+  const ema20 = calcEMA(closes, 20);
+  const ema50 = calcEMA(closes, 50);
+  const vwap  = calcVWAP(candles);
+  const rsi3  = calcRSI(closes, 3);
+  const rsi14 = calcRSI14(closes);
+  const volTrend = calcVolumeTrend(candles, 5);
 
-  console.log(`  Price:   $${price.toFixed(2)}`);
-  console.log(`  EMA(8):  $${ema8.toFixed(2)}`);
-  console.log(`  VWAP:    $${vwap ? vwap.toFixed(2) : "N/A"}`);
-  console.log(`  RSI(3):  ${(rsi3 !== null && rsi3 !== undefined && !isNaN(rsi3)) ? rsi3.toFixed(2) : "N/A (flat market)"}`);
-  console.log(`  Size:    $${tradeSize.toFixed(2)} (${riskMultiplier * 100}% of max $${CONFIG.maxTradeSizeUSD})`);
+  // ── Market Regime Detection ──────────────────────────────────────────────
+  // Extreme bounce mode: RSI(3) stuck below 5 for 3+ candles = selling exhaustion
+  const oversoldStreak = calcOversoldStreak(candles, 5);
+  const extremeBounce  = oversoldStreak >= 3 && rsi3 < 5;
+  const marketRegime   = extremeBounce
+    ? { mode: "extreme_bounce", streak: oversoldStreak, volumeTrend: volTrend.trend }
+    : { mode: "standard", streak: 0, volumeTrend: volTrend.trend };
+
+  const trendPct = ema50 > 0 ? ((ema20 - ema50) / ema50 * 100).toFixed(2) : "0";
+
+  console.log(`  Price:    $${price.toFixed(2)}`);
+  console.log(`  EMA8/20/50: $${ema8.toFixed(2)} / $${ema20.toFixed(2)} / $${ema50.toFixed(2)}  (trend: ${parseFloat(trendPct) > 0 ? "+" : ""}${trendPct}%)`);
+  console.log(`  VWAP:     $${vwap ? vwap.toFixed(2) : "N/A"}`);
+  console.log(`  RSI(3):   ${rsi3 !== null && !isNaN(rsi3) ? rsi3.toFixed(2) : "N/A"}  |  RSI(14): ${rsi14 !== null && !isNaN(rsi14) ? rsi14.toFixed(2) : "N/A"}`);
+  console.log(`  Volume:   ${volTrend.trend} (ratio ${volTrend.ratio}x vs prior 5 candles)`);
+  console.log(`  Regime:   ${extremeBounce ? `🔥 EXTREME BOUNCE (oversold ${oversoldStreak} candles)` : "📊 Standard"}`);
+  console.log(`  Size:     $${tradeSize.toFixed(2)}`);
 
   if (vwap === null || vwap === undefined || isNaN(vwap) ||
       rsi3 === null || rsi3 === undefined || isNaN(rsi3)) {
@@ -1015,7 +1040,9 @@ async function analyseSymbol(symbol, rules, log, learning) {
     _vwapProximity: learning.vwapProximityPct || 1.5,
   };
 
-  const { results, allPass, bias } = runSafetyCheck(price, ema8, vwap, rsi3, adaptedRules);
+  const { results, allPass, bias } = runSafetyCheck(
+    price, ema8, ema20, ema50, vwap, rsi3, adaptedRules, marketRegime
+  );
 
   console.log(`\n  Safety Check (RSI threshold: ${adaptedRules._rsiThreshold}, VWAP proximity: ${adaptedRules._vwapProximity}%):`);
   results.forEach(r => console.log(`  ${r.pass ? "✅" : "🚫"} ${r.label}`));
@@ -1025,7 +1052,8 @@ async function analyseSymbol(symbol, rules, log, learning) {
     symbol,
     timeframe: CONFIG.timeframe,
     price,
-    indicators: { ema8, vwap, rsi3 },
+    indicators: { ema8, ema20, ema50, vwap, rsi3, rsi14, volumeTrend: volTrend },
+    marketRegime,
     conditions: results,
     allPass,
     bias,
