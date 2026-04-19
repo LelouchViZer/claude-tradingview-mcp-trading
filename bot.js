@@ -1139,6 +1139,146 @@ async function analyseSymbol(symbol, rules, log, learning) {
   return logEntry;
 }
 
+// ─── Scalp Scanner (5m chart) ────────────────────────────────────────────────
+//
+//  Runs after the main 4H scan on every symbol.
+//  Looks for high-probability micro setups on the 5m chart:
+//    LONG scalp: RSI(3) < 20 + price at VWAP + volume surge + bullish candle
+//    SHORT scalp: RSI(3) > 80 + price at VWAP + volume surge + bearish candle
+//
+//  Scalp params: $10 margin × 10x = $100 position | SL 0.25% | TP 0.50% (2:1 RR)
+//  Max 3 scalps/day | Only fires if total open margin stays under $25
+
+function countOpenMargin(log) {
+  return log.trades
+    .filter(t => t.orderPlaced && !t.outcome)
+    .reduce((sum, t) => sum + (t.tradeSize || 0), 0);
+}
+
+async function scanForScalps(symbol, log, learning) {
+  // Don't scalp if margin budget is full ($25 cap)
+  const openMargin = countOpenMargin(log);
+  if (openMargin + 10 > 25) return null;
+
+  // Max 3 scalps/day
+  const today = new Date().toISOString().slice(0, 10);
+  const scalpsToday = log.trades.filter(t =>
+    t.timestamp.startsWith(today) && t.isScalp && t.orderPlaced
+  ).length;
+  if (scalpsToday >= 3) return null;
+
+  // No existing open trade on this symbol
+  const openOnSymbol = log.trades.filter(t =>
+    t.symbol === symbol && t.orderPlaced && !t.outcome
+  ).length;
+  if (openOnSymbol > 0) return null;
+
+  try {
+    const candles5m = await fetchCandles(symbol, "5m", 60);
+    const closes5m  = candles5m.map(c => c.close);
+    const price     = closes5m[closes5m.length - 1];
+    const ema8_5m   = calcEMA(closes5m, 8);
+    const vwap5m    = calcVWAP(candles5m);
+    const rsi3_5m   = calcRSI(closes5m, 3);
+
+    if (!vwap5m || rsi3_5m === null || isNaN(rsi3_5m)) return null;
+
+    const lastC  = candles5m[candles5m.length - 1];
+    const avgVol = candles5m.slice(-6, -1).reduce((s, c) => s + c.volume, 0) / 5;
+    const volRatio   = avgVol > 0 ? lastC.volume / avgVol : 1;
+    const volSurge   = volRatio >= 1.5;
+    const distVwap   = Math.abs((price - vwap5m) / vwap5m) * 100;
+    const bullCandle = lastC.close > lastC.open;
+    const bearCandle = lastC.close < lastC.open;
+
+    let scalpBias = null;
+    let reason    = "";
+
+    // ── LONG scalp: extreme 5m oversold + at VWAP + volume spike + bullish reversal candle ──
+    if (rsi3_5m < 20 && price <= vwap5m * 1.003 && distVwap < 0.6 && volSurge && bullCandle) {
+      scalpBias = "buy";
+      reason = `5m RSI(3)=${rsi3_5m.toFixed(1)} oversold + vol surge ${volRatio.toFixed(1)}x + bullish reversal candle`;
+    }
+
+    // ── SHORT scalp: extreme 5m overbought + at VWAP + volume spike + bearish reversal candle ──
+    if (rsi3_5m > 80 && price >= vwap5m * 0.997 && distVwap < 0.6 && volSurge && bearCandle) {
+      scalpBias = "sell";
+      reason = `5m RSI(3)=${rsi3_5m.toFixed(1)} overbought + vol surge ${volRatio.toFixed(1)}x + bearish reversal candle`;
+    }
+
+    if (!scalpBias) return null;
+
+    // Scalp always uses $10 margin (minimum, safe sizing)
+    const scalpSize  = 10;
+    const scalpSlPct = 0.25;
+    const scalpTpPct = 0.50;
+    const lev        = CONFIG.leverage;
+    const posUSD     = scalpSize * lev;
+
+    const stopLoss   = scalpBias === "buy"
+      ? parseFloat((price * (1 - scalpSlPct / 100)).toFixed(4))
+      : parseFloat((price * (1 + scalpSlPct / 100)).toFixed(4));
+    const takeProfit = scalpBias === "buy"
+      ? parseFloat((price * (1 + scalpTpPct / 100)).toFixed(4))
+      : parseFloat((price * (1 - scalpTpPct / 100)).toFixed(4));
+
+    const riskUSD   = posUSD * scalpSlPct / 100;
+    const rewardUSD = posUSD * scalpTpPct / 100;
+
+    console.log(`\n  ⚡ SCALP SIGNAL — ${scalpBias.toUpperCase()} ${symbol}`);
+    console.log(`     ${reason}`);
+    console.log(`     5m: Price $${price.toFixed(2)} | VWAP $${vwap5m.toFixed(2)} | EMA8 $${ema8_5m.toFixed(2)}`);
+    console.log(`     Margin: $${scalpSize} × ${lev}x = $${posUSD} position`);
+    console.log(`     SL: $${stopLoss} (-${scalpSlPct}%) → risk $${riskUSD.toFixed(2)}`);
+    console.log(`     TP: $${takeProfit} (+${scalpTpPct}%) → reward $${rewardUSD.toFixed(2)}`);
+    console.log(`     Scalps today: ${scalpsToday}/3 | Open margin: $${openMargin}`);
+
+    const logEntry = {
+      timestamp:    new Date().toISOString(),
+      symbol,
+      timeframe:    "5m",
+      isScalp:      true,
+      price,
+      side:         scalpBias,
+      tradeSize:    scalpSize,
+      leverage:     lev,
+      stopLoss,
+      takeProfit,
+      quantity:     scalpSize / price,
+      orderPlaced:  false,
+      orderId:      null,
+      paperTrading: CONFIG.paperTrading,
+      scalpReason:  reason,
+      conditions:   [{ label: "Scalp signal", pass: true }],
+      allPass:      true,
+      bias:         scalpBias,
+    };
+
+    if (CONFIG.paperTrading) {
+      logEntry.orderPlaced = true;
+      logEntry.orderId     = `SCALP-${Date.now()}`;
+      console.log(`\n  📋 PAPER SCALP LOGGED ✅`);
+    } else {
+      try {
+        const order = await placeBitGetOrder(symbol, scalpBias, scalpSize, price);
+        logEntry.orderPlaced  = true;
+        logEntry.orderId      = order.orderId;
+        logEntry.stopLoss     = order.stopLoss;
+        logEntry.takeProfit   = order.takeProfit;
+        console.log(`  ✅ SCALP ORDER PLACED — ${order.orderId}`);
+      } catch (err) {
+        console.log(`  ❌ SCALP FAILED — ${err.message}`);
+        logEntry.error = err.message;
+      }
+    }
+
+    return logEntry;
+  } catch (err) {
+    // Silently skip — scalps are opportunistic, not critical
+    return null;
+  }
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function run() {
@@ -1213,6 +1353,27 @@ async function run() {
     }
     await new Promise(r => setTimeout(r, 1200));
   }
+
+  // ── Scalp Scanner — runs after main strategy ──────────────────────────────
+  console.log(`\n── ⚡ Scalp Scanner (5m) ${"─".repeat(35)}\n`);
+  let scalpsFound = 0;
+  for (const symbol of CONFIG.symbols) {
+    try {
+      const scalpEntry = await scanForScalps(symbol, log, learning);
+      if (scalpEntry) {
+        scalpsFound++;
+        log.trades.push(scalpEntry);
+        saveLog(log);
+        writeTradeCsv(scalpEntry);
+      } else {
+        console.log(`  ${symbol}: no scalp setup right now`);
+      }
+    } catch (err) {
+      console.log(`  ⚠️  Scalp error ${symbol}: ${err.message}`);
+    }
+    await new Promise(r => setTimeout(r, 600));
+  }
+  if (scalpsFound === 0) console.log(`\n  No scalp opportunities this scan.`);
 
   console.log(`\n${"═".repeat(57)}`);
   console.log(`  Scan complete — ${CONFIG.symbols.length} symbols checked`);
