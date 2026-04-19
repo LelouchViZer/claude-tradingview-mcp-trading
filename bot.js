@@ -888,7 +888,7 @@ function generateTaxSummary() {
 //   4. Symbol win rate        (15 pts) — this coin's historical performance
 //   5. Overall strategy WR    (10 pts) — bot's rolling win rate
 //
-//  Final size = $10 + (confidence% / 100) × $5, rounded to nearest $0.50
+//  Final size = flat $15 (Option A — push for $60 target, keep strict entry rules)
 
 function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning) {
   let score = 0;
@@ -944,9 +944,8 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
 
   // ── Final confidence % and trade size ──
   const confidencePct = Math.min(100, Math.round(score));
-  // $10 at 0%, $15 at 100% — rounded to nearest $0.50
-  const rawSize    = 10 + (confidencePct / 100) * 5;
-  const finalSize  = Math.min(15, Math.max(10, Math.round(rawSize * 2) / 2));
+  // Option A: flat $15 per trade — maximise gains toward $60 target
+  const finalSize  = Math.min(CONFIG.maxTradeSizeUSD, 15);
 
   return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown };
 }
@@ -1127,7 +1126,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
       logEntry.confidence = conf;
 
       console.log(`\n  ✅ ALL CONDITIONS MET — ${entryConfirm.reason}`);
-      console.log(`\n  🧠 CONFIDENCE BREAKDOWN — ${conf.confidencePct}% → $${finalTradeSize}`);
+      console.log(`\n  🧠 CONFIDENCE — ${conf.confidencePct}% | Size: $${finalTradeSize} (flat — Option A)`);
       Object.entries(conf.breakdown).forEach(([k, v]) =>
         console.log(`     ${k.padEnd(12)}: ${v}`)
       );
