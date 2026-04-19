@@ -172,7 +172,7 @@ function updateTradeOutcomes(log, learning, currentPrices) {
 
       console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
       console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
-      writeExitCsv(trade);
+      writeExitCsv(trade, log);
       updated = true;
     }
   }
@@ -324,7 +324,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         console.log(`     Reason:  ${exitReason}`);
         console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
-        writeExitCsv(trade);
+        writeExitCsv(trade, log);
 
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
@@ -738,13 +738,24 @@ const CSV_HEADERS = [
   "Action",
   "Quantity",
   "Price",
-  "Total USD",
+  "Margin USD",
   "P&L USD",
   "P&L %",
+  "Balance After",
+  "Result",
   "Order ID",
   "Mode",
   "Notes",
 ].join(",");
+
+// Calculate running account balance from all closed trades in the log
+function calcRunningBalance(log) {
+  const start   = CONFIG.portfolioValue;  // $30
+  const closedPnl = (log?.trades || [])
+    .filter(t => t.outcome && t.pnlUSD != null)
+    .reduce((sum, t) => sum + parseFloat(t.pnlUSD || 0), 0);
+  return parseFloat((start + closedPnl).toFixed(2));
+}
 
 // Write a trade OPEN row
 function writeTradeCsv(logEntry) {
@@ -752,7 +763,7 @@ function writeTradeCsv(logEntry) {
   const date = now.toISOString().slice(0, 10);
   const time = now.toISOString().slice(11, 19);
 
-  let action = "", quantity = "", totalUSD = "", pnlUSD = "", pnlPct = "", orderId = "", mode = "", notes = "";
+  let action = "", quantity = "", totalUSD = "", orderId = "", mode = "", notes = "";
 
   if (!logEntry.allPass) {
     const failed = (logEntry.conditions || []).filter(c => !c.pass).map(c => c.label).join("; ");
@@ -760,39 +771,66 @@ function writeTradeCsv(logEntry) {
     notes = `Failed: ${failed}`;
   } else {
     const side = logEntry.side || "buy";
+    const lev  = logEntry.leverage || CONFIG.leverage || 1;
     action   = side.toUpperCase() === "BUY" ? "OPEN LONG" : "OPEN SHORT";
     quantity = ((logEntry.tradeSize || 0) / logEntry.price).toFixed(6);
     totalUSD = (logEntry.tradeSize || 0).toFixed(2);
     orderId  = logEntry.orderId || "";
     mode     = logEntry.paperTrading ? "PAPER" : "LIVE";
-    notes    = `SL $${logEntry.stopLoss || "-"} | TP $${logEntry.takeProfit || "-"}`;
+    notes    = logEntry.isScalp
+      ? `⚡ SCALP ${lev}x | SL $${logEntry.stopLoss || "-"} | TP $${logEntry.takeProfit || "-"}`
+      : `${lev}x leverage | SL $${logEntry.stopLoss || "-"} | TP $${logEntry.takeProfit || "-"}`;
   }
 
+  // Open rows: no P&L yet — leave those columns blank
   appendCsvRow([date, time, "BitGet", logEntry.symbol, action, quantity,
-    logEntry.price.toFixed(2), totalUSD, pnlUSD, pnlPct, orderId, mode, `"${notes}"`]);
+    logEntry.price.toFixed(2), totalUSD, "", "", "", "",
+    orderId, mode, `"${notes}"`]);
 }
 
-// Write a trade CLOSE row (early exit, SL hit, TP hit)
-function writeExitCsv(trade) {
-  const now    = new Date(trade.closedAt || new Date());
-  const date   = now.toISOString().slice(0, 10);
-  const time   = now.toISOString().slice(11, 19);
-  const side   = trade.side || (trade.takeProfit > trade.price ? "buy" : "sell");
-  const action = side === "buy" ? "CLOSE LONG" : "CLOSE SHORT";
-  const qty    = (trade.quantity || (trade.tradeSize / trade.price)).toFixed(6);
-  const pnlPct = trade.pnlPct || "0";
-  const pnlUSD = (parseFloat(pnlPct) / 100 * (trade.tradeSize || 0)).toFixed(2);
+// Write a trade CLOSE row — this is the one that shows the actual profit/loss
+function writeExitCsv(trade, log) {
+  const now     = new Date(trade.closedAt || new Date());
+  const date    = now.toISOString().slice(0, 10);
+  const time    = now.toISOString().slice(11, 19);
+  const side    = trade.side || (trade.takeProfit > trade.price ? "buy" : "sell");
+  const action  = side === "buy" ? "CLOSE LONG" : "CLOSE SHORT";
+  const qty     = parseFloat(trade.quantity || (trade.tradeSize / trade.price)).toFixed(6);
+
+  // P&L — pnlPct is already leverage-adjusted (e.g. 3% move × 10x = 30% of margin)
+  const pnlPct  = parseFloat(trade.pnlPct || "0");
+  // pnlUSD = leverage-adjusted % × margin (already stored on trade if available)
+  const pnlUSD  = trade.pnlUSD != null
+    ? parseFloat(trade.pnlUSD)
+    : parseFloat((pnlPct / 100 * (trade.tradeSize || 0)).toFixed(2));
+
+  // Running balance after this trade closes
+  const balance = calcRunningBalance(log);
+
+  // Visual result label
   const outcome = trade.outcome || "CLOSED";
-  const mode   = trade.paperTrading !== false ? "PAPER" : "LIVE";
-  const notes  = trade.exitReason
+  const isWin   = pnlUSD >= 0;
+  const result  = isWin
+    ? `✅ WIN +$${Math.abs(pnlUSD).toFixed(2)}`
+    : `❌ LOSS -$${Math.abs(pnlUSD).toFixed(2)}`;
+
+  const mode    = trade.paperTrading !== false ? "PAPER" : "LIVE";
+  const notes   = trade.exitReason
     ? `${outcome}: ${trade.exitReason}`
     : outcome;
 
-  appendCsvRow([date, time, "BitGet", trade.symbol, action, qty,
+  appendCsvRow([
+    date, time, "BitGet", trade.symbol, action, qty,
     (trade.exitPrice || trade.price).toFixed(2),
-    (trade.tradeSize || 0).toFixed(2), pnlUSD, pnlPct + "%",
-    trade.orderId || "", mode, `"${notes}"`]);
-  console.log(`  📝 Exit logged to trades.csv — ${outcome} ${pnlPct}%`);
+    (trade.tradeSize || 0).toFixed(2),
+    (isWin ? "+" : "") + pnlUSD.toFixed(2),   // P&L USD  e.g. +3.75 or -1.88
+    (isWin ? "+" : "") + pnlPct.toFixed(2) + "%", // P&L %
+    "$" + balance,                              // Balance After
+    `"${result}"`,                              // Result (WIN/LOSS with $)
+    trade.orderId || "", mode, `"${notes}"`
+  ]);
+
+  console.log(`  📝 Logged → trades.csv | ${result} | Balance: $${balance}`);
 }
 
 function appendCsvRow(cols) {
