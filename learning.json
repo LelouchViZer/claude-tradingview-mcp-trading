@@ -1,0 +1,39 @@
+{
+  "totalTrades": 4,
+  "wins": 2,
+  "losses": 2,
+  "winRate": 50,
+  "rsiEntryThreshold": 30,
+  "vwapProximityPct": 1.5,
+  "entryTF": "15m",
+  "symbolStats": {
+    "BTCUSDT": {
+      "wins": 0,
+      "losses": 2,
+      "winRate": 0
+    },
+    "SOLUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    },
+    "BNBUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    }
+  },
+  "symbolCooldowns": {},
+  "tradeLessons": [],
+  "extremeBounceMinStreak": 3,
+  "lastUpdated": null,
+  "notes": [],
+  "capitulationEvents": [
+    {
+      "date": "2026-04-20",
+      "time": "12:15:30",
+      "coinsOverbought": 4,
+      "type": "overbought"
+    }
+  ]
+}

@@ -100,8 +100,10 @@ const CONFIG = {
   maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || "2"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
-  leverage: parseInt(process.env.LEVERAGE || "1"),   // 1 = spot, 10 = futures 10x
-  stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "2.0"),
+  leverage: parseInt(process.env.LEVERAGE || "10"),  // max leverage ceiling (bot picks 3-10x dynamically)
+  minLeverage: parseInt(process.env.MIN_LEVERAGE || "3"),  // floor — never go below 3x
+  riskPerTradePct: parseFloat(process.env.RISK_PER_TRADE_PCT || "1.5"), // % of portfolio risked per trade
+  stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "1.5"),
   rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
   // Early exit: cut trade when this % of SL distance is reached AND momentum confirms
   earlyExitSlPct: parseFloat(process.env.EARLY_EXIT_SL_PCT || "0.65"),
@@ -892,8 +894,13 @@ function checkTradeLimits(log) {
     `✅ Trades today: ${todayCount}/${CONFIG.maxTradesPerDay} — within limit`,
   );
 
+  // Dynamic risk sizing display: show margin range across leverage spectrum
+  const riskAmt   = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
+  const maxMargin = CONFIG.portfolioValue * 0.20;
+  const minMarginCalc = Math.min(riskAmt / (CONFIG.leverage    * CONFIG.stopLossPct / 100), maxMargin);
+  const maxMarginCalc = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), maxMargin);
   console.log(
-    `✅ Max trade size: $${CONFIG.maxTradeSizeUSD} — configured`,
+    `✅ Risk per trade: ${CONFIG.riskPerTradePct}% ($${riskAmt.toFixed(2)}) | Margin $${minMarginCalc.toFixed(0)}–$${maxMarginCalc.toFixed(0)} (${CONFIG.minLeverage}x–${CONFIG.leverage}x dynamic)`,
   );
 
   return true;
@@ -1252,10 +1259,49 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
 
   // ── Final confidence % and trade size ──
   const confidencePct = Math.min(100, Math.round(score));
-  // Option A: flat $15 per trade — maximise gains toward $60 target
-  const finalSize  = Math.min(CONFIG.maxTradeSizeUSD, 15);
+  // Dynamic sizing: risk a fixed % of portfolio, adjust margin based on leverage
+  // The dollar risk per trade is ALWAYS riskPerTradePct% of portfolio
+  // Higher confidence → higher leverage → smaller margin needed → same $ risk
+  const riskAmount  = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
+  const lev         = calcDynamicLeverage(confidencePct, bias);
+  const rawMargin   = riskAmount / (lev * CONFIG.stopLossPct / 100);
+  // Cap at 20% of portfolio per trade to avoid over-concentration
+  const maxMargin   = CONFIG.portfolioValue * 0.20;
+  const finalSize   = parseFloat(Math.min(rawMargin, maxMargin).toFixed(2));
 
-  return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown };
+  return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown, dynamicLeverage: lev };
+}
+
+// ─── Dynamic Leverage Engine ─────────────────────────────────────────────────
+// Picks leverage 3x–10x based on confidence score and market regime.
+// Higher confidence = higher leverage = more efficient capital use.
+// Dollar risk stays constant (1.5% of portfolio) regardless of leverage.
+//
+//  Confidence   Leverage  Margin (on $1500, 1.5% risk = $22.50)
+//  ──────────   ────────  ──────────────────────────────────────
+//  Extreme mode   10x       $150
+//  ≥ 75%          10x       $150
+//  ≥ 60%           7x       $214
+//  ≥ 45%           5x       $300
+//  < 45%           3x       $500
+//
+function calcDynamicLeverage(confidencePct, bias) {
+  const maxLev = CONFIG.leverage    || 10;
+  const minLev = CONFIG.minLeverage || 3;
+  let lev;
+  // Extreme regime = highest probability = max leverage
+  if (bias === "extreme_bounce" || bias === "extreme_resistance") {
+    lev = maxLev;
+  } else if (confidencePct >= 75) {
+    lev = maxLev;           // 10x
+  } else if (confidencePct >= 60) {
+    lev = Math.min(7, maxLev);
+  } else if (confidencePct >= 45) {
+    lev = Math.min(5, maxLev);
+  } else {
+    lev = Math.max(minLev, 3);
+  }
+  return lev;
 }
 
 // ─── Multi-Timeframe Entry Confirmation ─────────────────────────────────────
@@ -1436,43 +1482,44 @@ async function analyseSymbol(symbol, rules, log, learning) {
       logEntry.allPass = false;
       logEntry.blockedReason = entryConfirm.reason;
     } else {
-      // ── Confidence engine: $10-$15 based on 5-factor market confidence ──
-      const conf = calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning);
+      // ── Confidence + Dynamic Leverage engine ─────────────────────────────
+      const conf           = calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning);
       const finalTradeSize = conf.finalSize;
-      logEntry.tradeSize = finalTradeSize;
-      logEntry.confidence = conf;
+      const dynLev         = conf.dynamicLeverage || CONFIG.leverage;
+      logEntry.tradeSize   = finalTradeSize;
+      logEntry.confidence  = conf;
 
       console.log(`\n  ✅ ALL CONDITIONS MET — ${entryConfirm.reason}`);
-      console.log(`\n  🧠 CONFIDENCE — ${conf.confidencePct}% | Size: $${finalTradeSize} (flat — Option A)`);
+      console.log(`\n  🧠 CONFIDENCE — ${conf.confidencePct}% | Leverage: ${dynLev}x | Margin: $${finalTradeSize}`);
       Object.entries(conf.breakdown).forEach(([k, v]) =>
         console.log(`     ${k.padEnd(12)}: ${v}`)
       );
-      console.log(`     ${"─".repeat(44)}`)
-      console.log(`     Total score : ${conf.score}/100 → size $${finalTradeSize}`);
+      console.log(`     ${"─".repeat(44)}`);
+      console.log(`     Score: ${conf.score}/100 | Risk: $${(CONFIG.portfolioValue * CONFIG.riskPerTradePct / 100).toFixed(2)} (${CONFIG.riskPerTradePct}% of $${CONFIG.portfolioValue})`);
       const side = (bias === "bearish" || bias === "extreme_resistance") ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
         const { stopLoss, takeProfit, rrMultiplier } = calcSlTp(price, side, bias, marketRegime.streak || 0);
-        const lev = CONFIG.leverage;
+        const lev         = dynLev;
         const positionUSD = finalTradeSize * lev;
-        const riskUSD   = Math.abs(price - stopLoss)   / price * positionUSD;
-        const rewardUSD = Math.abs(takeProfit - price)  / price * positionUSD;
-        const tpPct     = (CONFIG.stopLossPct * rrMultiplier).toFixed(1);
-        const regimeTag = (bias === "extreme_bounce" || bias === "extreme_resistance")
+        const riskUSD     = Math.abs(price - stopLoss)   / price * positionUSD;
+        const rewardUSD   = Math.abs(takeProfit - price)  / price * positionUSD;
+        const tpPct       = (CONFIG.stopLossPct * rrMultiplier).toFixed(1);
+        const regimeTag   = (bias === "extreme_bounce" || bias === "extreme_resistance")
           ? ` 🔥 streak ${marketRegime.streak} → ${rrMultiplier}:1 RR` : "";
         console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol}${regimeTag}`);
         console.log(`     Margin:      $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)} position`);
         console.log(`     Entry:       $${price.toFixed(2)}`);
-        console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk  $${riskUSD.toFixed(2)}`);
+        console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → max loss  $${riskUSD.toFixed(2)}`);
         console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${tpPct}%) → reward $${rewardUSD.toFixed(2)}`);
         console.log(`     R:R Ratio:   1:${rrMultiplier}`);
         logEntry.orderPlaced = true;
-        logEntry.orderId = `PAPER-${Date.now()}`;
-        logEntry.stopLoss = stopLoss;
-        logEntry.takeProfit = takeProfit;
-        logEntry.side = side;
-        logEntry.quantity = finalTradeSize / price;
-        logEntry.leverage = CONFIG.leverage;
+        logEntry.orderId     = `PAPER-${Date.now()}`;
+        logEntry.stopLoss    = stopLoss;
+        logEntry.takeProfit  = takeProfit;
+        logEntry.side        = side;
+        logEntry.quantity    = finalTradeSize / price;
+        logEntry.leverage    = dynLev;
         // Telegram: trade opened
         const modeTag = CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE";
         const dirTag  = side === "buy" ? "📈 LONG" : "📉 SHORT";
