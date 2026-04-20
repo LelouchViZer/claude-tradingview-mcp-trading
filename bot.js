@@ -437,26 +437,42 @@ async function checkEarlyExits(log, learning, currentPrices) {
         }
       }
 
+      // ── Pump/dump protection ────────────────────────────────────────────────
+      // Lesson from April 19-20: BNB/SOL entered on extreme bounce, then early
+      // exit fired on a VWAP dip while the pump was still in progress. Volume
+      // was surging = the move had momentum. Never exit during a volume surge.
+      const volTrendNow  = calcVolumeTrend(candles, 5);
+      const pumpInProgress  = volTrendNow.trend === "surging" && currentPnlPct > 0;
+      const isBounceTrade   = trade.marketRegime?.mode === "extreme_bounce";
+      const isResistTrade   = trade.marketRegime?.mode === "extreme_resistance";
+
+      if (pumpInProgress) {
+        console.log(`  🚀 ${trade.symbol} — volume surging ${volTrendNow.ratio.toFixed(1)}x, pump in progress — holding`);
+        // Still update trailing stop even if we're not exiting
+      }
+
       // ── Early exit: stricter rules — require CONFIRMED reversal signals ──
-      // Single VWAP dip = normal noise, not an exit signal.
-      // Exit only when MULTIPLE conditions confirm the setup is broken.
+      // Bounce/resistance trades get even more protection — RSI naturally rises
+      // during a pump so we use a higher threshold before calling it a reversal.
+      const rsiExitThresholdLong  = isBounceTrade ? 20 : 30;  // bounce trades: RSI must drop below 20
+      const rsiExitThresholdShort = isResistTrade ? 80 : 70;  // resist trades: RSI must rise above 80
+
       if (tradeSide === "buy") {
-        const hardInvalidation = currentPrice < vwap && currentPrice < ema20 && rsi3 < 30;
-        const approachingSL    = slProgress >= CONFIG.earlyExitSlPct && rsi3 < 30;
+        const hardInvalidation = !pumpInProgress
+          && currentPrice < vwap && currentPrice < ema20 && rsi3 < rsiExitThresholdLong;
+        const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 < rsiExitThresholdLong;
 
         if (hardInvalidation || approachingSL) {
-          // Require 2 consecutive bad scans before exiting (avoid one-candle fakeouts)
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
           if (trade._earlyExitWarnings >= 2) {
             shouldExit = true;
             exitReason = hardInvalidation
-              ? `Setup invalidated — price below VWAP, EMA(20) AND RSI(3)=${rsi3.toFixed(1)} (confirmed over 2 scans)`
+              ? `Setup invalidated — price below VWAP+EMA20, RSI(3)=${rsi3.toFixed(1)} (confirmed 2 scans)`
               : `${(slProgress * 100).toFixed(0)}% to SL, RSI(3)=${rsi3.toFixed(1)} — no recovery (confirmed)`;
           } else {
-            console.log(`  ⚠️  ${trade.symbol} LONG — weak signal (scan ${trade._earlyExitWarnings}/2) | RSI: ${rsi3.toFixed(1)} | Watching next scan...`);
+            console.log(`  ⚠️  ${trade.symbol} LONG — strike ${trade._earlyExitWarnings}/2 | RSI: ${rsi3.toFixed(1)} | Watching...`);
           }
         } else {
-          // Conditions improved — reset warning counter
           if (trade._earlyExitWarnings > 0) {
             console.log(`  ✅ ${trade.symbol} LONG — warning cleared, setup intact`);
             trade._earlyExitWarnings = 0;
@@ -464,18 +480,19 @@ async function checkEarlyExits(log, learning, currentPrices) {
         }
 
       } else if (tradeSide === "sell") {
-        const hardInvalidation = currentPrice > vwap && currentPrice > ema20 && rsi3 > 70;
-        const approachingSL    = slProgress >= CONFIG.earlyExitSlPct && rsi3 > 70;
+        const hardInvalidation = !pumpInProgress
+          && currentPrice > vwap && currentPrice > ema20 && rsi3 > rsiExitThresholdShort;
+        const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 > rsiExitThresholdShort;
 
         if (hardInvalidation || approachingSL) {
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
           if (trade._earlyExitWarnings >= 2) {
             shouldExit = true;
             exitReason = hardInvalidation
-              ? `Setup invalidated — price above VWAP, EMA(20) AND RSI(3)=${rsi3.toFixed(1)} (confirmed over 2 scans)`
+              ? `Setup invalidated — price above VWAP+EMA20, RSI(3)=${rsi3.toFixed(1)} (confirmed 2 scans)`
               : `${(slProgress * 100).toFixed(0)}% to SL, RSI(3)=${rsi3.toFixed(1)} — no reversal (confirmed)`;
           } else {
-            console.log(`  ⚠️  ${trade.symbol} SHORT — weak signal (scan ${trade._earlyExitWarnings}/2) | RSI: ${rsi3.toFixed(1)} | Watching next scan...`);
+            console.log(`  ⚠️  ${trade.symbol} SHORT — strike ${trade._earlyExitWarnings}/2 | RSI: ${rsi3.toFixed(1)} | Watching...`);
           }
         } else {
           if (trade._earlyExitWarnings > 0) {
@@ -854,9 +871,21 @@ function signBitGet(timestamp, method, path, body = "") {
 }
 
 // Calculate SL and TP prices based on strategy rules
-function calcSlTp(entryPrice, side) {
+// For extreme bounce/resistance: deeper oversold streak = bigger expected move = wider TP
+//   streak 3–4 → 2:1 RR (standard)
+//   streak 5–6 → 3:1 RR (strong exhaustion)
+//   streak 7+  → 4:1 RR (extreme capitulation — expect large snap-back)
+function calcSlTp(entryPrice, side, regime = "standard", oversoldStreak = 0) {
   const slPct = CONFIG.stopLossPct / 100;
-  const tpPct = slPct * CONFIG.rrRatio;
+  let rrMultiplier = CONFIG.rrRatio;
+
+  if (regime === "extreme_bounce" || regime === "extreme_resistance") {
+    if (oversoldStreak >= 7)      rrMultiplier = 4.0;
+    else if (oversoldStreak >= 5) rrMultiplier = 3.0;
+    else                          rrMultiplier = 2.0;
+  }
+
+  const tpPct = slPct * rrMultiplier;
   let stopLoss, takeProfit;
   if (side === "buy") {
     stopLoss   = parseFloat((entryPrice * (1 - slPct)).toFixed(2));
@@ -865,7 +894,7 @@ function calcSlTp(entryPrice, side) {
     stopLoss   = parseFloat((entryPrice * (1 + slPct)).toFixed(2));
     takeProfit = parseFloat((entryPrice * (1 - tpPct)).toFixed(2));
   }
-  return { stopLoss, takeProfit };
+  return { stopLoss, takeProfit, rrMultiplier };
 }
 
 async function placeBitGetOrder(symbol, side, sizeUSD, price) {
@@ -1384,17 +1413,20 @@ async function analyseSymbol(symbol, rules, log, learning) {
       const side = (bias === "bearish" || bias === "extreme_resistance") ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
-        const { stopLoss, takeProfit } = calcSlTp(price, side);
+        const { stopLoss, takeProfit, rrMultiplier } = calcSlTp(price, side, bias, marketRegime.streak || 0);
         const lev = CONFIG.leverage;
         const positionUSD = finalTradeSize * lev;
         const riskUSD   = Math.abs(price - stopLoss)   / price * positionUSD;
         const rewardUSD = Math.abs(takeProfit - price)  / price * positionUSD;
-        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol}`);
+        const tpPct     = (CONFIG.stopLossPct * rrMultiplier).toFixed(1);
+        const regimeTag = (bias === "extreme_bounce" || bias === "extreme_resistance")
+          ? ` 🔥 streak ${marketRegime.streak} → ${rrMultiplier}:1 RR` : "";
+        console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol}${regimeTag}`);
         console.log(`     Margin:      $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)} position`);
         console.log(`     Entry:       $${price.toFixed(2)}`);
         console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → risk  $${riskUSD.toFixed(2)}`);
-        console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${(CONFIG.stopLossPct * CONFIG.rrRatio).toFixed(1)}%) → reward $${rewardUSD.toFixed(2)}`);
-        console.log(`     R:R Ratio:   1:${CONFIG.rrRatio}`);
+        console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${tpPct}%) → reward $${rewardUSD.toFixed(2)}`);
+        console.log(`     R:R Ratio:   1:${rrMultiplier}`);
         logEntry.orderPlaced = true;
         logEntry.orderId = `PAPER-${Date.now()}`;
         logEntry.stopLoss = stopLoss;
@@ -1620,6 +1652,47 @@ async function run() {
     console.log("\nBot stopping — trade limits reached for today.");
     return;
   }
+
+  // ── Market-wide capitulation / euphoria detector ──────────────────────────
+  // Lesson from April 17-20: when 3+ coins are SIMULTANEOUSLY at RSI(3)=0,
+  // that's a market-wide capitulation → expect a major pump across all coins.
+  // Log it, raise confidence, and widen TP targets automatically.
+  try {
+    let extremeOversoldCount = 0;
+    let extremeOverboughtCount = 0;
+    for (const sym of CONFIG.symbols) {
+      try {
+        const c = await fetchCandles(sym, CONFIG.timeframe, 100);
+        const r = calcRSI(c.map(x => x.close), 3);
+        if (r !== null && r < 5)  extremeOversoldCount++;
+        if (r !== null && r > 90) extremeOverboughtCount++;
+      } catch { /* ignore */ }
+    }
+    if (extremeOversoldCount >= 3) {
+      console.log(`\n  🚨 MARKET CAPITULATION DETECTED — ${extremeOversoldCount}/${CONFIG.symbols.length} coins at RSI(3)<5`);
+      console.log(`     → History shows this precedes a major pump. Bounce entries have wider TP.`);
+      if (!learning.capitulationEvents) learning.capitulationEvents = [];
+      const lastEvent = learning.capitulationEvents.slice(-1)[0];
+      const today = new Date().toISOString().slice(0, 10);
+      if (!lastEvent || lastEvent.date !== today) {
+        learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOversold: extremeOversoldCount, type: "oversold" });
+        if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
+        saveLearning(learning);
+      }
+    }
+    if (extremeOverboughtCount >= 3) {
+      console.log(`\n  🚨 MARKET EUPHORIA DETECTED — ${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3)>90`);
+      console.log(`     → Overbought across the board. Short setups forming. Resistance entries have wider TP.`);
+      if (!learning.capitulationEvents) learning.capitulationEvents = [];
+      const lastEvent = learning.capitulationEvents.slice(-1)[0];
+      const today = new Date().toISOString().slice(0, 10);
+      if (!lastEvent || lastEvent.date !== today) {
+        learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOverbought: extremeOverboughtCount, type: "overbought" });
+        if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
+        saveLearning(learning);
+      }
+    }
+  } catch { /* don't crash main scan */ }
 
   // Scan every symbol
   for (const symbol of CONFIG.symbols) {
