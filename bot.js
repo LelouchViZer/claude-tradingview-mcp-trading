@@ -96,13 +96,13 @@ const CONFIG = {
   timeframe: process.env.TIMEFRAME || "4H",
   portfolioValue: parseFloat(process.env.PORTFOLIO_VALUE_USD || "1000"),
   maxTradeSizeUSD: parseFloat(process.env.MAX_TRADE_SIZE_USD || "12.5"),
-  maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY || "3"),
-  maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || "2"),
+  maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY || "15"),
+  maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || "5"),
   paperTrading: process.env.PAPER_TRADING !== "false",
   tradeMode: process.env.TRADE_MODE || "spot",
-  leverage: parseInt(process.env.LEVERAGE || "10"),  // max leverage ceiling (bot picks 3-10x dynamically)
-  minLeverage: parseInt(process.env.MIN_LEVERAGE || "3"),  // floor — never go below 3x
-  riskPerTradePct: parseFloat(process.env.RISK_PER_TRADE_PCT || "1.5"), // % of portfolio risked per trade
+  leverage: parseInt(process.env.LEVERAGE || "25"),  // max leverage ceiling (bot picks 5-25x dynamically)
+  minLeverage: parseInt(process.env.MIN_LEVERAGE || "5"),  // floor — never go below 5x
+  riskPerTradePct: parseFloat(process.env.RISK_PER_TRADE_PCT || "5.0"), // % of portfolio risked per trade
   stopLossPct: parseFloat(process.env.STOP_LOSS_PCT || "1.5"),
   rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
   // Early exit: cut trade when this % of SL distance is reached AND momentum confirms
@@ -896,7 +896,7 @@ function checkTradeLimits(log) {
 
   // Dynamic risk sizing display: show margin range across leverage spectrum
   const riskAmt   = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
-  const maxMargin = CONFIG.portfolioValue * 0.20;
+  const maxMargin = CONFIG.portfolioValue * 0.30;
   const minMarginCalc = Math.min(riskAmt / (CONFIG.leverage    * CONFIG.stopLossPct / 100), maxMargin);
   const maxMarginCalc = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), maxMargin);
   console.log(
@@ -1265,41 +1265,47 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
   const riskAmount  = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
   const lev         = calcDynamicLeverage(confidencePct, bias);
   const rawMargin   = riskAmount / (lev * CONFIG.stopLossPct / 100);
-  // Cap at 20% of portfolio per trade to avoid over-concentration
-  const maxMargin   = CONFIG.portfolioValue * 0.20;
+  // Cap at 30% of portfolio per trade — higher limit for bigger positions
+  const maxMargin   = CONFIG.portfolioValue * 0.30;
   const finalSize   = parseFloat(Math.min(rawMargin, maxMargin).toFixed(2));
 
   return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown, dynamicLeverage: lev };
 }
 
 // ─── Dynamic Leverage Engine ─────────────────────────────────────────────────
-// Picks leverage 3x–10x based on confidence score and market regime.
+// Picks leverage 5x–25x based on confidence score and market regime.
 // Higher confidence = higher leverage = more efficient capital use.
-// Dollar risk stays constant (1.5% of portfolio) regardless of leverage.
+// Dollar risk stays constant (5% of portfolio = $75 on $1500) regardless of leverage.
 //
-//  Confidence   Leverage  Margin (on $1500, 1.5% risk = $22.50)
-//  ──────────   ────────  ──────────────────────────────────────
-//  Extreme mode   10x       $150
-//  ≥ 75%          10x       $150
-//  ≥ 60%           7x       $214
-//  ≥ 45%           5x       $300
-//  < 45%           3x       $500
+//  Confidence      Leverage   Margin (on $1500, 5% risk=$75, 1.5% SL)
+//  ─────────────   ────────   ───────────────────────────────────────
+//  Extreme mode      25x        $200    → exposure $5,000
+//  ≥ 80%             25x        $200    → exposure $5,000
+//  ≥ 70%             20x        $250    → exposure $5,000
+//  ≥ 55%             15x        $333    → exposure $5,000
+//  ≥ 40%             10x        $500    → exposure $5,000
+//  < 40%              5x       $1000    → capped at 30% = $450
+//
+// Note: exposure stays ~$5k because risk $ is fixed; leverage just adjusts margin used.
+// Increasing risk% (5%) is what drives bigger dollar P&L per trade.
 //
 function calcDynamicLeverage(confidencePct, bias) {
-  const maxLev = CONFIG.leverage    || 10;
-  const minLev = CONFIG.minLeverage || 3;
+  const maxLev = CONFIG.leverage    || 25;
+  const minLev = CONFIG.minLeverage || 5;
   let lev;
   // Extreme regime = highest probability = max leverage
   if (bias === "extreme_bounce" || bias === "extreme_resistance") {
-    lev = maxLev;
-  } else if (confidencePct >= 75) {
-    lev = maxLev;           // 10x
-  } else if (confidencePct >= 60) {
-    lev = Math.min(7, maxLev);
-  } else if (confidencePct >= 45) {
-    lev = Math.min(5, maxLev);
+    lev = maxLev;                          // 25x — maximum conviction
+  } else if (confidencePct >= 80) {
+    lev = maxLev;                          // 25x
+  } else if (confidencePct >= 70) {
+    lev = Math.min(20, maxLev);            // 20x
+  } else if (confidencePct >= 55) {
+    lev = Math.min(15, maxLev);            // 15x
+  } else if (confidencePct >= 40) {
+    lev = Math.min(10, maxLev);            // 10x
   } else {
-    lev = Math.max(minLev, 3);
+    lev = Math.max(minLev, 5);             // 5x — minimum
   }
   return lev;
 }
