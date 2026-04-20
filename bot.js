@@ -1797,6 +1797,58 @@ async function run() {
     }
   } catch { /* don't crash main scan */ }
 
+  // ── Daily P&L Telegram summary (once per day, first scan after midnight) ────
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (learning.lastDailySummaryDate !== today) {
+      const allTrades   = log.trades || [];
+      const todayTrades = allTrades.filter(t => t.timestamp?.startsWith(today) && t.outcome);
+      const todayWins   = todayTrades.filter(t => t.outcome === "WIN").length;
+      const todayLosses = todayTrades.filter(t => t.outcome === "LOSS").length;
+      const todayPnl    = todayTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
+
+      // All-time closed trades
+      const closedTrades = allTrades.filter(t => t.outcome);
+      const totalPnl     = closedTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
+      const balance      = CONFIG.portfolioValue + totalPnl;
+      const openTrades   = allTrades.filter(t => t.orderPlaced && !t.outcome);
+
+      // Yesterday stats (for the summary to show)
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const yTrades   = allTrades.filter(t => t.timestamp?.startsWith(yesterday) && t.outcome);
+      const yWins     = yTrades.filter(t => t.outcome === "WIN").length;
+      const yLosses   = yTrades.filter(t => t.outcome === "LOSS").length;
+      const yPnl      = yTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
+
+      // Win-rate emoji
+      const wr = learning.winRate || 0;
+      const wrEmoji = wr >= 60 ? "🟢" : wr >= 45 ? "🟡" : "🔴";
+
+      // Build message
+      const msg = [
+        `📊 <b>Daily Bot Report — ${today}</b>`,
+        ``,
+        `<b>Yesterday (${yesterday})</b>`,
+        `  Trades: ${yWins + yLosses} | ✅ ${yWins}W / ❌ ${yLosses}L`,
+        `  P&L: ${yPnl >= 0 ? "+" : ""}$${yPnl.toFixed(2)}`,
+        ``,
+        `<b>All-Time</b>`,
+        `  ${wrEmoji} Win rate: ${wr}% (${learning.wins}W / ${learning.losses}L)`,
+        `  Total P&L: ${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`,
+        `  Balance: $${balance.toFixed(2)} (started $${CONFIG.portfolioValue})`,
+        `  Open now: ${openTrades.length} trade${openTrades.length !== 1 ? "s" : ""}`,
+        ``,
+        `Risk: $75/trade | Leverage: 5–25x dynamic`,
+        `Mode: ${CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE"}`,
+      ].join("\n");
+
+      await tg(msg);
+      learning.lastDailySummaryDate = today;
+      saveLearning(learning);
+      console.log(`\n📱 Daily summary sent to Telegram`);
+    }
+  } catch { /* never crash main scan */ }
+
   // Scan every symbol
   for (const symbol of CONFIG.symbols) {
     // ── Symbol cooldown check (2+ consecutive losses → temp skip) ──────────
