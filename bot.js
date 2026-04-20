@@ -69,6 +69,26 @@ function checkOnboarding() {
   );
 }
 
+// ─── Telegram Notifications ──────────────────────────────────────────────────
+
+const TELEGRAM_TOKEN   = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID   || "";
+
+async function tg(message) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return; // silently skip if not configured
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: "HTML",
+      }),
+    });
+  } catch { /* never crash the bot over a notification */ }
+}
+
 // ─── Config ────────────────────────────────────────────────────────────────
 
 const CONFIG = {
@@ -141,7 +161,7 @@ function saveLearning(learning) {
 }
 
 // Check all open paper trades — did they hit SL or TP since last scan?
-function updateTradeOutcomes(log, learning, currentPrices) {
+async function updateTradeOutcomes(log, learning, currentPrices) {
   let updated = false;
   for (const trade of log.trades) {
     if (!trade.orderPlaced || trade.outcome) continue; // skip if already resolved
@@ -180,6 +200,15 @@ function updateTradeOutcomes(log, learning, currentPrices) {
       console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
       writeExitCsv(trade, log);
       recordTradeLesson(trade, log, learning);
+      // Telegram: trade closed
+      const isW = outcome === "WIN";
+      const bal = calcRunningBalance(log);
+      await tg(
+        `${isW ? "✅ WIN" : "❌ LOSS"} <b>${trade.symbol}</b>\n` +
+        `Entry: $${trade.price} → Exit: $${currentPrice}\n` +
+        `P&L: <b>${isW ? "+" : ""}${trade.pnlPct}%</b> (${isW ? "+" : ""}$${trade.pnlUSD})\n` +
+        `Balance: <b>$${bal}</b>`
+      );
       updated = true;
     }
   }
@@ -534,6 +563,16 @@ async function checkEarlyExits(log, learning, currentPrices) {
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
         writeExitCsv(trade, log);
         recordTradeLesson(trade, log, learning);
+        // Telegram: early exit
+        const earlyBal = calcRunningBalance(log);
+        const earlyIcon = isProfit ? "💰" : "✂️";
+        await tg(
+          `${earlyIcon} EARLY EXIT <b>${trade.symbol}</b>\n` +
+          `${trade.exitReason || trade.outcome}\n` +
+          `Entry: $${trade.price} → Exit: $${currentPrice}\n` +
+          `P&L: <b>${isProfit ? "+" : ""}${trade.pnlPct}%</b> ($${trade.pnlUSD})\n` +
+          `Balance: <b>$${earlyBal}</b>`
+        );
 
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
@@ -1434,6 +1473,15 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.side = side;
         logEntry.quantity = finalTradeSize / price;
         logEntry.leverage = CONFIG.leverage;
+        // Telegram: trade opened
+        const modeTag = CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE";
+        const dirTag  = side === "buy" ? "📈 LONG" : "📉 SHORT";
+        await tg(
+          `${dirTag} <b>${symbol}</b> ${modeTag}\n` +
+          `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${CONFIG.leverage}x\n` +
+          `SL: $${stopLoss} | TP: $${takeProfit}\n` +
+          `RR: 1:${rrMultiplier} | Regime: ${bias}`
+        );
       } else {
         console.log(`\n  🔴 PLACING LIVE ORDER — $${finalTradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
         try {
@@ -1636,7 +1684,7 @@ async function run() {
     } catch { /* ignore */ }
   }
   // Check SL/TP hits
-  const outcomesUpdated = updateTradeOutcomes(log, learning, currentPrices);
+  const outcomesUpdated = await updateTradeOutcomes(log, learning, currentPrices);
 
   // Check early exit conditions on all open trades
   const earlyExitUpdated = await checkEarlyExits(log, learning, currentPrices);
@@ -1678,6 +1726,7 @@ async function run() {
         learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOversold: extremeOversoldCount, type: "oversold" });
         if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
         saveLearning(learning);
+        await tg(`🚨 <b>MARKET CAPITULATION</b>\n${extremeOversoldCount}/${CONFIG.symbols.length} coins at RSI(3) &lt; 5\nHistory: major pump incoming 📈\nBot is watching for bounce entries with wider TP targets.`);
       }
     }
     if (extremeOverboughtCount >= 3) {
@@ -1690,6 +1739,7 @@ async function run() {
         learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOverbought: extremeOverboughtCount, type: "overbought" });
         if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
         saveLearning(learning);
+        await tg(`🚨 <b>MARKET EUPHORIA</b>\n${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3) &gt; 90\nOverbought across the board 📊\nShort setups forming — correction likely incoming.`);
       }
     }
   } catch { /* don't crash main scan */ }
