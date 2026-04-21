@@ -813,19 +813,25 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
   }
 
   // ── Standard Momentum Mode ──────────────────────────────────────────────
-  // Trend direction from EMA stack: 20 vs 50 is more reliable than EMA8 alone
-  const ema20AboveEma50 = ema20 > ema50;
-  const bullishBias = price > vwap && price > ema20 && ema20AboveEma50;
-  const bearishBias = price < vwap && price < ema20 && !ema20AboveEma50;
+  // Bias fix: removed "price > ema20" from bullish condition.
+  // In a healthy uptrend, RSI(3) pullbacks naturally push price BELOW EMA20 —
+  // that's the entry, not a reason to block it. EMA20 > EMA50 confirms the trend.
+  const ema20AboveEma50  = ema20 > ema50;
+  const emaSeparationPct = Math.abs(ema20 - ema50) / ema50 * 100;
+  const isRanging        = emaSeparationPct < 1.0; // EMAs within 1% = consolidation
+
+  // Trend bias: just need the EMA stack direction + price side of VWAP
+  const bullishBias = ema20AboveEma50 && price > vwap;
+  const bearishBias = !ema20AboveEma50 && price < vwap;
 
   if (bullishBias) {
-    console.log(`  Bias: BULLISH — EMA20 $${ema20.toFixed(2)} > EMA50 $${ema50.toFixed(2)}\n`);
+    console.log(`  Bias: BULLISH — EMA20 $${ema20.toFixed(2)} > EMA50 $${ema50.toFixed(2)} | Spread: ${emaSeparationPct.toFixed(2)}%\n`);
 
+    check("EMA(20) > EMA(50) — uptrend confirmed",
+      `> ${ema50.toFixed(2)}`, ema20.toFixed(2), ema20AboveEma50);
     check("Price above VWAP (buyers in control)",
       `> ${vwap.toFixed(2)}`, price.toFixed(2), price > vwap);
-    check("Price above EMA(20) + EMA(20) > EMA(50)",
-      `> ${ema20.toFixed(2)}`, price.toFixed(2), price > ema20 && ema20AboveEma50);
-    check(`RSI(3) below ${rsiThreshold} (pullback in uptrend)`,
+    check(`RSI(3) below ${rsiThreshold} (pullback in uptrend — entry timing)`,
       `< ${rsiThreshold}`, rsi3.toFixed(2), rsi3 < rsiThreshold);
     check(`Price within ${vwapProximity}% of VWAP`,
       `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
@@ -834,8 +840,8 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
     // Two SHORT entry modes:
     // A) Short the bounce  — RSI(3) bounced to >70, rejecting → fade the bounce
     // B) Momentum short    — RSI(3) < 50 + RSI(14) < 50 → short the trend continuation
-    const shortBounce    = rsi3 > (100 - rsiThreshold);          // e.g. RSI(3) > 70
-    const shortMomentum  = rsi3 < 50 && (rsi14 !== null && rsi14 < 50); // trend continuation
+    const shortBounce    = rsi3 > (100 - rsiThreshold);
+    const shortMomentum  = rsi3 < 50 && (rsi14 !== null && rsi14 < 50);
 
     if (shortBounce) {
       console.log(`  Bias: BEARISH 📉 (bounce rejection) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
@@ -866,13 +872,48 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
       results.push({ label: "RSI entry signal", required: "< 50 or > 70", actual: rsi3.toFixed(2), pass: false });
     }
 
+  } else if (isRanging) {
+    // ── RANGING MARKET MODE ──────────────────────────────────────────────
+    // EMAs are within 1% of each other — market is consolidating.
+    // In ranges, trade RSI extremes near VWAP (mean-reversion logic).
+    const rangeLong  = rsi3 < 25 && price > vwap * 0.995; // oversold, near VWAP support
+    const rangeShort = rsi3 > 75 && price < vwap * 1.005; // overbought, near VWAP resistance
+
+    if (rangeLong) {
+      console.log(`  Bias: RANGING 🔄 (range long) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI oversold\n`);
+      check("RSI(3) below 25 — extreme oversold in range",
+        `< 25`, rsi3.toFixed(2), rsi3 < 25);
+      check("Price near VWAP support (range floor)",
+        `≥ ${(vwap * 0.995).toFixed(2)}`, price.toFixed(2), price >= vwap * 0.995);
+      check(`Price within ${vwapProximity}% of VWAP`,
+        `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+    } else if (rangeShort) {
+      console.log(`  Bias: RANGING 🔄 (range short) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI overbought\n`);
+      check("RSI(3) above 75 — extreme overbought in range",
+        `> 75`, rsi3.toFixed(2), rsi3 > 75);
+      check("Price near VWAP resistance (range ceiling)",
+        `≤ ${(vwap * 1.005).toFixed(2)}`, price.toFixed(2), price <= vwap * 1.005);
+      check(`Price within ${vwapProximity}% of VWAP`,
+        `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+    } else {
+      console.log(`  Bias: RANGING 🔄 — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI(3) ${rsi3.toFixed(1)} mid-range — waiting for extreme\n`);
+      results.push({ label: "Range signal", required: "RSI < 25 or RSI > 75 near VWAP", actual: `RSI ${rsi3.toFixed(1)}`, pass: false });
+    }
+
   } else {
-    console.log(`  Bias: NEUTRAL — EMA20 $${ema20.toFixed(2)} | EMA50 $${ema50.toFixed(2)} | No clear edge\n`);
-    results.push({ label: "Market bias", required: "Bullish or bearish", actual: "Neutral", pass: false });
+    console.log(`  Bias: NEUTRAL — EMA20 $${ema20.toFixed(2)} | EMA50 $${ema50.toFixed(2)} | Spread ${emaSeparationPct.toFixed(2)}% — no edge\n`);
+    results.push({ label: "Market bias", required: "Bullish / bearish / ranging", actual: "Neutral", pass: false });
   }
 
   const allPass = results.every(r => r.pass);
-  const bias = bullishBias ? "bullish" : bearishBias ? "bearish" : "neutral";
+  // Detect ranging bias direction for trade side assignment
+  const rangeLongActive  = isRanging && rsi3 < 25 && results.some(r => r.label.includes("oversold"));
+  const rangeShortActive = isRanging && rsi3 > 75 && results.some(r => r.label.includes("overbought"));
+  const bias = bullishBias    ? "bullish"
+             : bearishBias    ? "bearish"
+             : rangeLongActive  ? "bullish"   // range long → buy side
+             : rangeShortActive ? "bearish"   // range short → sell side
+             : "neutral";
   return { results, allPass, bias };
 }
 
