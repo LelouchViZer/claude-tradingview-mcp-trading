@@ -231,23 +231,23 @@ function adaptThresholds(log, learning) {
 
   const note = [];
 
-  // Win rate too low → tighten entry (require more oversold RSI)
-  if (recentWinRate < 45 && learning.rsiEntryThreshold > 20) {
-    learning.rsiEntryThreshold = Math.max(20, learning.rsiEntryThreshold - 2);
+  // Win rate too low → tighten slightly (but never go below 35 — that kills all trades)
+  if (recentWinRate < 40 && learning.rsiEntryThreshold > 35) {
+    learning.rsiEntryThreshold = Math.max(35, learning.rsiEntryThreshold - 2);
     note.push(`Win rate ${recentWinRate.toFixed(0)}% — tightened RSI threshold to ${learning.rsiEntryThreshold}`);
   }
-  // Win rate high → can relax slightly to catch more setups
-  else if (recentWinRate > 70 && learning.rsiEntryThreshold < 35) {
-    learning.rsiEntryThreshold = Math.min(35, learning.rsiEntryThreshold + 1);
+  // Win rate good → relax to catch more setups (up to 50)
+  else if (recentWinRate > 60 && learning.rsiEntryThreshold < 50) {
+    learning.rsiEntryThreshold = Math.min(50, learning.rsiEntryThreshold + 2);
     note.push(`Win rate ${recentWinRate.toFixed(0)}% — relaxed RSI threshold to ${learning.rsiEntryThreshold}`);
   }
 
-  // VWAP proximity: tighten if losing too much
-  if (recentWinRate < 40 && learning.vwapProximityPct > 0.8) {
-    learning.vwapProximityPct = Math.max(0.8, learning.vwapProximityPct - 0.2);
+  // VWAP proximity: tighten if losing badly, but never below 2%
+  if (recentWinRate < 35 && learning.vwapProximityPct > 2.0) {
+    learning.vwapProximityPct = Math.max(2.0, learning.vwapProximityPct - 0.2);
     note.push(`Tightened VWAP proximity to ${learning.vwapProximityPct}%`);
-  } else if (recentWinRate > 65 && learning.vwapProximityPct < 2.0) {
-    learning.vwapProximityPct = Math.min(2.0, learning.vwapProximityPct + 0.1);
+  } else if (recentWinRate > 60 && learning.vwapProximityPct < 3.5) {
+    learning.vwapProximityPct = Math.min(3.5, learning.vwapProximityPct + 0.2);
     note.push(`Relaxed VWAP proximity to ${learning.vwapProximityPct}%`);
   }
 
@@ -1355,62 +1355,50 @@ function calcDynamicLeverage(confidencePct, bias) {
 
 async function confirmEntryOnLowerTF(symbol, bias, learning) {
   const entryTF = learning.entryTF || "15m";
-  console.log(`\n  🔍 Checking ${entryTF} for precise entry...`);
+  console.log(`\n  🔍 ${entryTF} context check (advisory — 4H already confirmed)...`);
 
   try {
-    // Fetch lower TF candles
     const candles5m = await fetchCandles(symbol, entryTF, 100);
-    const closes5m = candles5m.map(c => c.close);
-    const price5m = closes5m[closes5m.length - 1];
-
-    const ema8_5m = calcEMA(closes5m, 8);
-    const vwap5m = calcVWAP(candles5m);
-    const rsi3_5m = calcRSI(closes5m, 3);
+    const closes5m  = candles5m.map(c => c.close);
+    const price5m   = closes5m[closes5m.length - 1];
+    const ema8_5m   = calcEMA(closes5m, 8);
+    const vwap5m    = calcVWAP(candles5m);
+    const rsi3_5m   = calcRSI(closes5m, 3);
 
     if (!vwap5m || rsi3_5m === null || isNaN(rsi3_5m)) {
-      console.log(`  ⚠️  Lower TF data unavailable — using 4H entry only`);
-      return { confirmed: true, reason: "Lower TF unavailable — 4H entry used" };
+      return { confirmed: true, passCount: 2, reason: "4H conditions met — entering" };
     }
 
-    const lastCandle = candles5m[candles5m.length - 1];
-    const prevCandle = candles5m[candles5m.length - 2];
+    const lastCandle        = candles5m[candles5m.length - 1];
     const confirmationCandle = bias === "bullish"
-      ? lastCandle.close > lastCandle.open   // bullish candle
-      : lastCandle.close < lastCandle.open;  // bearish candle
+      ? lastCandle.close > lastCandle.open
+      : lastCandle.close < lastCandle.open;
+    const distFromVwap5m    = Math.abs((price5m - vwap5m) / vwap5m) * 100;
 
-    const distFromVwap5m = Math.abs((price5m - vwap5m) / vwap5m) * 100;
-    const rsiThreshold = learning.rsiEntryThreshold || 30;
-
+    // Relaxed thresholds: RSI<50 for longs (not 30), within 3% of VWAP (not 1.5%)
     const checks = {
-      rsiOversold: bias === "bullish" ? rsi3_5m < rsiThreshold : rsi3_5m > (100 - rsiThreshold),
-      nearVwap: distFromVwap5m < (learning.vwapProximityPct || 1.5),
-      confirmCandle: confirmationCandle,
-      emaAligned: bias === "bullish" ? price5m > ema8_5m : price5m < ema8_5m,
+      rsiFavourable:  bias === "bullish" ? rsi3_5m < 50 : rsi3_5m > 50,
+      nearVwap:       distFromVwap5m < 3.0,
+      confirmCandle:  confirmationCandle,
+      emaAligned:     bias === "bullish" ? price5m > ema8_5m * 0.998 : price5m < ema8_5m * 1.002,
     };
 
-    console.log(`  ${entryTF} Price: $${price5m.toFixed(2)} | EMA8: $${ema8_5m.toFixed(2)} | VWAP: $${vwap5m.toFixed(2)} | RSI: ${rsi3_5m.toFixed(1)}`);
-    console.log(`  ${checks.rsiOversold ? "✅" : "🚫"} RSI(3) ${bias === "bullish" ? "< " + rsiThreshold : "> " + (100 - rsiThreshold)} on ${entryTF} — actual: ${rsi3_5m.toFixed(1)}`);
-    console.log(`  ${checks.nearVwap ? "✅" : "🚫"} Within ${learning.vwapProximityPct || 1.5}% of ${entryTF} VWAP — actual: ${distFromVwap5m.toFixed(2)}%`);
-    console.log(`  ${checks.confirmCandle ? "✅" : "🚫"} ${bias === "bullish" ? "Bullish" : "Bearish"} confirmation candle on ${entryTF}`);
-    console.log(`  ${checks.emaAligned ? "✅" : "🚫"} Price ${bias === "bullish" ? "above" : "below"} EMA(8) on ${entryTF}`);
-
-    // Need at least 3 of 4 lower TF checks to pass
     const passCount = Object.values(checks).filter(Boolean).length;
-    const confirmed = passCount >= 3;
 
+    console.log(`  ${entryTF} | Price $${price5m.toFixed(2)} | RSI ${rsi3_5m.toFixed(1)} | VWAP dist ${distFromVwap5m.toFixed(2)}% | ${passCount}/4 checks`);
+
+    // Always confirmed — lower TF is advisory context only, NOT a gate.
+    // 4H conditions are the real gate. Lower TF data feeds into confidence score.
     return {
-      confirmed,
+      confirmed: true,
       passCount,
       checks,
       entryTF,
       rsi: rsi3_5m,
-      reason: confirmed
-        ? `${entryTF} entry confirmed (${passCount}/4 checks passed)`
-        : `${entryTF} entry rejected (only ${passCount}/4 checks passed — waiting for better entry)`
+      reason: `4H conditions met — entering (${entryTF} context: ${passCount}/4)`
     };
   } catch (err) {
-    console.log(`  ⚠️  Lower TF check failed: ${err.message} — proceeding with 4H entry`);
-    return { confirmed: true, reason: "Lower TF error — 4H entry used" };
+    return { confirmed: true, passCount: 2, reason: "4H conditions met — entering" };
   }
 }
 
@@ -1483,8 +1471,8 @@ async function analyseSymbol(symbol, rules, log, learning) {
   // Use adaptive thresholds from learning system
   const adaptedRules = {
     ...rules,
-    _rsiThreshold: learning.rsiEntryThreshold || 30,
-    _vwapProximity: learning.vwapProximityPct || 1.5,
+    _rsiThreshold: learning.rsiEntryThreshold || 40,   // 40 default (was 30 — too strict)
+    _vwapProximity: learning.vwapProximityPct || 2.5,  // 2.5% default (was 1.5% — too tight)
   };
 
   const { results, allPass, bias } = runSafetyCheck(

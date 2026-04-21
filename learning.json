@@ -3,8 +3,8 @@
   "wins": 2,
   "losses": 2,
   "winRate": 50,
-  "rsiEntryThreshold": 30,
-  "vwapProximityPct": 1.5,
+  "rsiEntryThreshold": 40,
+  "vwapProximityPct": 2.5,
   "entryTF": "15m",
   "symbolStats": {
     "BTCUSDT": {
