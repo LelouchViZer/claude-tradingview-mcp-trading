@@ -171,17 +171,32 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
     if (!currentPrice || !trade.stopLoss || !trade.takeProfit) continue;
 
     let outcome = null;
-    if (currentPrice <= trade.stopLoss) outcome = "LOSS";
-    else if (currentPrice >= trade.takeProfit) outcome = "WIN";
+    const isSell = trade.side === "sell";
+    if (isSell) {
+      // SHORT: loss if price rises to SL, win if price falls to TP
+      if (currentPrice >= trade.stopLoss)  outcome = "LOSS";
+      else if (currentPrice <= trade.takeProfit) outcome = "WIN";
+    } else {
+      // LONG: loss if price falls to SL, win if price rises to TP
+      if (currentPrice <= trade.stopLoss)  outcome = "LOSS";
+      else if (currentPrice >= trade.takeProfit) outcome = "WIN";
+    }
 
     if (outcome) {
       const lev = trade.leverage || 1;
       trade.outcome = outcome;
       trade.exitPrice = currentPrice;
       trade.closedAt = new Date().toISOString();
-      trade.pnlPct = outcome === "WIN"
-        ? ((trade.takeProfit - trade.price) / trade.price * 100 * lev).toFixed(2)
-        : ((trade.stopLoss  - trade.price) / trade.price * 100 * lev).toFixed(2);
+      // P&L: always positive for WIN, negative for LOSS, regardless of side
+      if (isSell) {
+        trade.pnlPct = outcome === "WIN"
+          ? ((trade.price - trade.takeProfit) / trade.price * 100 * lev).toFixed(2)   // short win: entry > TP
+          : ((trade.price - trade.stopLoss)   / trade.price * 100 * lev).toFixed(2);  // short loss: entry < SL (negative)
+      } else {
+        trade.pnlPct = outcome === "WIN"
+          ? ((trade.takeProfit - trade.price) / trade.price * 100 * lev).toFixed(2)
+          : ((trade.stopLoss   - trade.price) / trade.price * 100 * lev).toFixed(2);
+      }
       trade.pnlUSD = (parseFloat(trade.pnlPct) / 100 * (trade.tradeSize || 0)).toFixed(2);
 
       // Update learning stats
