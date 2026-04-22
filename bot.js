@@ -488,23 +488,29 @@ async function checkEarlyExits(log, learning, currentPrices) {
       // exit fired on a VWAP dip while the pump was still in progress. Volume
       // was surging = the move had momentum. Never exit during a volume surge.
       const volTrendNow  = calcVolumeTrend(candles, 5);
-      const pumpInProgress  = volTrendNow.trend === "surging" && currentPnlPct > 0;
       const isBounceTrade   = trade.marketRegime?.mode === "extreme_bounce";
       const isResistTrade   = trade.marketRegime?.mode === "extreme_resistance";
 
-      if (pumpInProgress) {
-        console.log(`  🚀 ${trade.symbol} — volume surging ${volTrendNow.ratio.toFixed(1)}x, pump in progress — holding`);
-        // Still update trailing stop even if we're not exiting
+      // For LONGS: hold through a volume surge (pump in progress = don't exit)
+      // For SHORTS: volume surging against us = EXIT IMMEDIATELY (don't fight a pump)
+      const pumpAgainstLong  = tradeSide === "buy"  && volTrendNow.trend === "surging" && currentPnlPct > 0;
+      const pumpAgainstShort = tradeSide === "sell" && volTrendNow.trend === "surging" && currentPnlPct < -5;
+
+      if (pumpAgainstLong) {
+        console.log(`  🚀 ${trade.symbol} LONG — volume surging ${volTrendNow.ratio.toFixed(1)}x, pump carrying us — holding`);
       }
 
-      // ── Early exit: stricter rules — require CONFIRMED reversal signals ──
-      // Bounce/resistance trades get even more protection — RSI naturally rises
-      // during a pump so we use a higher threshold before calling it a reversal.
-      const rsiExitThresholdLong  = isBounceTrade ? 20 : 30;  // bounce trades: RSI must drop below 20
-      const rsiExitThresholdShort = isResistTrade ? 80 : 70;  // resist trades: RSI must rise above 80
+      if (pumpAgainstShort) {
+        shouldExit = true;
+        exitReason = `Volume surging ${volTrendNow.ratio.toFixed(1)}x against short — pump detected, cutting loss now`;
+        console.log(`  🔥 ${trade.symbol} SHORT — pump surging against position, exiting immediately`);
+      }
 
-      if (tradeSide === "buy") {
-        const hardInvalidation = !pumpInProgress
+      const rsiExitThresholdLong  = isBounceTrade ? 20 : 30;
+      const rsiExitThresholdShort = isResistTrade ? 80 : 70;
+
+      if (!shouldExit && tradeSide === "buy") {
+        const hardInvalidation = !pumpAgainstLong
           && currentPrice < vwap && currentPrice < ema20 && rsi3 < rsiExitThresholdLong;
         const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 < rsiExitThresholdLong;
 
@@ -525,9 +531,8 @@ async function checkEarlyExits(log, learning, currentPrices) {
           }
         }
 
-      } else if (tradeSide === "sell") {
-        const hardInvalidation = !pumpInProgress
-          && currentPrice > vwap && currentPrice > ema20 && rsi3 > rsiExitThresholdShort;
+      } else if (!shouldExit && tradeSide === "sell") {
+        const hardInvalidation = currentPrice > vwap && currentPrice > ema20 && rsi3 > rsiExitThresholdShort;
         const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 > rsiExitThresholdShort;
 
         if (hardInvalidation || approachingSL) {
@@ -849,49 +854,55 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
   const bullishBias = bullishTrend && !isRanging && !overboughtInUptrend;
   const bearishBias = bearishTrend && !isRanging && !oversoldInDowntrend;
 
+  // ── VOLUME RULE: Never short into surging volume ──────────────────────────
+  // Surging volume = momentum continuation. High RSI + surging vol = PUMP, not top.
+  // Only fade overbought when volume is drying up (exhaustion) or normal.
+  const volTrend = marketRegime?.volumeTrend || "normal";
+  const volumeSurging = volTrend === "surging";
+
   if (overboughtInUptrend) {
-    // Uptrend but RSI overbought → short the pullback (mean reversion)
-    console.log(`  Bias: OVERBOUGHT SHORT 📉 — uptrend but RSI(3) ${rsi3.toFixed(1)} > 65 → sell the top\n`);
-    check("RSI(3) overbought (> 65) — overextended, pullback due",
+    console.log(`  Bias: OVERBOUGHT SHORT 📉 — RSI(3) ${rsi3.toFixed(1)} > 65 in uptrend | Vol: ${volTrend}\n`);
+    check("RSI(3) overbought (> 65) — overextended",
       `> 65`, rsi3.toFixed(2), rsi3 > 65);
+    check("RSI(14) below 70 — not a parabolic breakout",
+      `< 70`, (rsi14 !== null ? rsi14.toFixed(2) : "N/A"), rsi14 === null || rsi14 < 70);
     check(`Price within ${vwapProximity}% of VWAP`,
       `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
-    check("RSI(14) below 70 — not a parabolic move",
-      `< 70`, (rsi14 !== null ? rsi14.toFixed(2) : "N/A"), rsi14 === null || rsi14 < 70);
+    check("Volume NOT surging (need exhaustion to fade)",
+      "≠ surging", volTrend, !volumeSurging);
 
   } else if (oversoldInDowntrend) {
-    // Downtrend but RSI oversold → long the bounce (mean reversion)
-    console.log(`  Bias: OVERSOLD LONG 📈 — downtrend but RSI(3) ${rsi3.toFixed(1)} < 35 → buy the dip\n`);
-    check("RSI(3) oversold (< 35) — overextended, bounce due",
+    console.log(`  Bias: OVERSOLD LONG 📈 — RSI(3) ${rsi3.toFixed(1)} < 35 in downtrend | Vol: ${volTrend}\n`);
+    check("RSI(3) oversold (< 35) — bounce due",
       `< 35`, rsi3.toFixed(2), rsi3 < 35);
-    check(`Price within ${vwapProximity}% of VWAP`,
-      `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
     check("RSI(14) above 30 — not a total collapse",
       `> 30`, (rsi14 !== null ? rsi14.toFixed(2) : "N/A"), rsi14 === null || rsi14 > 30);
+    check(`Price within ${vwapProximity}% of VWAP`,
+      `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
 
   } else if (bullishBias) {
-    // Standard uptrend long entry: pullback in uptrend
     console.log(`  Bias: BULLISH — EMA20 $${ema20.toFixed(2)} > EMA50 $${ema50.toFixed(2)} | Spread: ${emaSeparationPct.toFixed(2)}%\n`);
     check("EMA(20) > EMA(50) — uptrend confirmed",
       `> ${ema50.toFixed(2)}`, ema20.toFixed(2), ema20AboveEma50);
     check(`Price within ${vwapProximity}% of VWAP (near mean)`,
       `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
-    check(`RSI(3) below ${rsiThreshold} — pullback entry timing`,
+    check(`RSI(3) below ${rsiThreshold} — pullback entry`,
       `< ${rsiThreshold}`, rsi3.toFixed(2), rsi3 < rsiThreshold);
 
   } else if (bearishBias) {
-    // Standard downtrend short entries
     const shortBounce   = rsi3 > (100 - rsiThreshold);
     const shortMomentum = rsi3 < 50 && (rsi14 !== null && rsi14 < 50);
 
     if (shortBounce) {
-      console.log(`  Bias: BEARISH 📉 (bounce rejection) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
+      console.log(`  Bias: BEARISH 📉 (bounce rejection) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)} | Vol: ${volTrend}\n`);
       check("EMA(20) < EMA(50) — downtrend confirmed",
         `< ${ema50.toFixed(2)}`, ema20.toFixed(2), !ema20AboveEma50);
-      check(`RSI(3) overbought bounce (> ${100 - rsiThreshold})`,
+      check(`RSI(3) overbought (> ${100 - rsiThreshold})`,
         `> ${100 - rsiThreshold}`, rsi3.toFixed(2), rsi3 > (100 - rsiThreshold));
       check(`Price within ${vwapProximity}% of VWAP`,
         `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+      check("Volume NOT surging (momentum must be fading)",
+        "≠ surging", volTrend, !volumeSurging);
 
     } else if (shortMomentum) {
       console.log(`  Bias: BEARISH 📉 (momentum short) — EMA20 $${ema20.toFixed(2)} < EMA50 $${ema50.toFixed(2)}\n`);
@@ -905,30 +916,34 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
         `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
 
     } else {
-      console.log(`  Bias: BEARISH 📉 — RSI(3) ${rsi3.toFixed(1)} in no-trade zone (need <50 or >${100-rsiThreshold})\n`);
+      console.log(`  Bias: BEARISH 📉 — RSI(3) ${rsi3.toFixed(1)} no-trade zone\n`);
       results.push({ label: "RSI entry signal", required: `< 50 or > ${100-rsiThreshold}`, actual: rsi3.toFixed(2), pass: false });
     }
 
   } else if (isRanging) {
-    // ── RANGING MARKET MODE ──────────────────────────────────────────────
     const rangeLong  = rsi3 < 35 && distFromVWAP < vwapProximity;
-    const rangeShort = rsi3 > 65 && distFromVWAP < vwapProximity;
+    const rangeShort = rsi3 > 65 && distFromVWAP < vwapProximity && !volumeSurging;
 
     if (rangeLong) {
-      console.log(`  Bias: RANGING 🔄 (range long) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI(3) oversold\n`);
+      console.log(`  Bias: RANGING 🔄 (range long) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI oversold\n`);
       check("RSI(3) below 35 — oversold in range",
         `< 35`, rsi3.toFixed(2), rsi3 < 35);
       check(`Price within ${vwapProximity}% of VWAP`,
         `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
     } else if (rangeShort) {
-      console.log(`  Bias: RANGING 🔄 (range short) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI(3) overbought\n`);
+      console.log(`  Bias: RANGING 🔄 (range short) — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI overbought, vol ${volTrend}\n`);
       check("RSI(3) above 65 — overbought in range",
         `> 65`, rsi3.toFixed(2), rsi3 > 65);
       check(`Price within ${vwapProximity}% of VWAP`,
         `< ${vwapProximity}%`, `${distFromVWAP.toFixed(2)}%`, distFromVWAP < vwapProximity);
+      check("Volume NOT surging (need fading momentum to short)",
+        "≠ surging", volTrend, !volumeSurging);
     } else {
-      console.log(`  Bias: RANGING 🔄 — EMAs flat (${emaSeparationPct.toFixed(2)}%), RSI(3) ${rsi3.toFixed(1)} — waiting for RSI < 35 or > 65\n`);
-      results.push({ label: "Range signal", required: "RSI < 35 or > 65 near VWAP", actual: `RSI ${rsi3.toFixed(1)}`, pass: false });
+      const blockReason = volumeSurging && rsi3 > 65
+        ? `RSI overbought but volume SURGING — this is a pump, not a top. Waiting for volume to fade.`
+        : `RSI ${rsi3.toFixed(1)} mid-range — waiting for RSI < 35 or > 65`;
+      console.log(`  Bias: RANGING 🔄 — ${blockReason}\n`);
+      results.push({ label: "Range signal", required: "RSI extreme + volume not surging", actual: `RSI ${rsi3.toFixed(1)}, Vol ${volTrend}`, pass: false });
     }
 
   } else {
@@ -1845,7 +1860,8 @@ async function run() {
     }
     if (extremeOverboughtCount >= 3) {
       console.log(`\n  🚨 MARKET EUPHORIA DETECTED — ${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3)>90`);
-      console.log(`     → Overbought across the board. Short setups forming. Resistance entries have wider TP.`);
+      console.log(`     → Strong momentum pump in progress. DO NOT short into surging volume.`);
+      console.log(`     → Wait for volume to exhaust before looking for short entries.`);
       if (!learning.capitulationEvents) learning.capitulationEvents = [];
       const lastEvent = learning.capitulationEvents.slice(-1)[0];
       const today = new Date().toISOString().slice(0, 10);
@@ -1853,7 +1869,7 @@ async function run() {
         learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOverbought: extremeOverboughtCount, type: "overbought" });
         if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
         saveLearning(learning);
-        await tg(`🚨 <b>MARKET EUPHORIA</b>\n${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3) &gt; 90\nOverbought across the board 📊\nShort setups forming — correction likely incoming.`);
+        await tg(`🚨 <b>MARKET EUPHORIA</b>\n${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3) &gt; 90\n⚠️ Strong momentum pump — do NOT short yet.\nWaiting for volume to exhaust before entries.`);
       }
     }
   } catch { /* don't crash main scan */ }

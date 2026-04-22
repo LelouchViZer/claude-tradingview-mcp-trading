@@ -7,21 +7,9 @@
   "vwapProximityPct": 2.5,
   "entryTF": "15m",
   "symbolStats": {
-    "BTCUSDT": {
-      "wins": 0,
-      "losses": 2,
-      "winRate": 0
-    },
-    "SOLUSDT": {
-      "wins": 1,
-      "losses": 0,
-      "winRate": 100
-    },
-    "BNBUSDT": {
-      "wins": 1,
-      "losses": 0,
-      "winRate": 100
-    }
+    "BTCUSDT": { "wins": 0, "losses": 2, "winRate": 0 },
+    "SOLUSDT": { "wins": 1, "losses": 0, "winRate": 100 },
+    "BNBUSDT": { "wins": 1, "losses": 0, "winRate": 100 }
   },
   "symbolCooldowns": {},
   "tradeLessons": [],
@@ -29,12 +17,8 @@
   "lastUpdated": null,
   "notes": [],
   "capitulationEvents": [
-    {
-      "date": "2026-04-20",
-      "time": "12:15:30",
-      "coinsOverbought": 4,
-      "type": "overbought"
-    }
+    { "date": "2026-04-20", "time": "12:15:30", "coinsOverbought": 4, "type": "overbought" },
+    { "date": "2026-04-22", "time": "11:33:55", "coinsOverbought": 4, "type": "overbought" }
   ],
-  "lastDailySummaryDate": "2026-04-21"
+  "lastDailySummaryDate": "2026-04-22"
 }
