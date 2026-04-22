@@ -494,7 +494,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
       // For LONGS: hold through a volume surge (pump in progress = don't exit)
       // For SHORTS: volume surging against us = EXIT IMMEDIATELY (don't fight a pump)
       const pumpAgainstLong  = tradeSide === "buy"  && volTrendNow.trend === "surging" && currentPnlPct > 0;
-      const pumpAgainstShort = tradeSide === "sell" && volTrendNow.trend === "surging" && currentPnlPct < -5;
+      const pumpAgainstShort = tradeSide === "sell" && volTrendNow.trend === "surging" && currentPnlPct < 0;
 
       if (pumpAgainstLong) {
         console.log(`  🚀 ${trade.symbol} LONG — volume surging ${volTrendNow.ratio.toFixed(1)}x, pump carrying us — holding`);
