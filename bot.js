@@ -987,7 +987,7 @@ function checkTradeLimits(log) {
 
   // Dynamic risk sizing display: show margin range across leverage spectrum
   const riskAmt   = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
-  const maxMargin = CONFIG.portfolioValue * 0.30;
+  const maxMargin = CONFIG.portfolioValue * 0.70;
   const minMarginCalc = Math.min(riskAmt / (CONFIG.leverage    * CONFIG.stopLossPct / 100), maxMargin);
   const maxMarginCalc = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), maxMargin);
   console.log(
@@ -1407,47 +1407,34 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
   const riskAmount  = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
   const lev         = calcDynamicLeverage(confidencePct, bias);
   const rawMargin   = riskAmount / (lev * CONFIG.stopLossPct / 100);
-  // Cap at 30% of portfolio per trade — higher limit for bigger positions
-  const maxMargin   = CONFIG.portfolioValue * 0.30;
+  // Cap at 70% of portfolio — lets risk-based sizing work correctly on small accounts
+  const maxMargin   = CONFIG.portfolioValue * 0.70;
   const finalSize   = parseFloat(Math.min(rawMargin, maxMargin).toFixed(2));
 
   return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown, dynamicLeverage: lev };
 }
 
 // ─── Dynamic Leverage Engine ─────────────────────────────────────────────────
-// Picks leverage 5x–25x based on confidence score and market regime.
-// Higher confidence = higher leverage = more efficient capital use.
-// Dollar risk stays constant (5% of portfolio = $75 on $1500) regardless of leverage.
+// Picks leverage 5x or 10x based on confidence score and market regime.
+// Dollar risk stays constant (5% of portfolio = $1.50 on $30) regardless of leverage.
 //
-//  Confidence      Leverage   Margin (on $1500, 5% risk=$75, 1.5% SL)
+//  Confidence      Leverage   Margin (on $30, 5% risk=$1.50, 1.5% SL)
 //  ─────────────   ────────   ───────────────────────────────────────
-//  Extreme mode      25x        $200    → exposure $5,000
-//  ≥ 80%             25x        $200    → exposure $5,000
-//  ≥ 70%             20x        $250    → exposure $5,000
-//  ≥ 55%             15x        $333    → exposure $5,000
-//  ≥ 40%             10x        $500    → exposure $5,000
-//  < 40%              5x       $1000    → capped at 30% = $450
-//
-// Note: exposure stays ~$5k because risk $ is fixed; leverage just adjusts margin used.
-// Increasing risk% (5%) is what drives bigger dollar P&L per trade.
+//  Extreme mode      10x        $10    → exposure $100
+//  ≥ 55%             10x        $10    → exposure $100
+//  < 55%              5x        $20    → exposure $100
 //
 function calcDynamicLeverage(confidencePct, bias) {
-  const maxLev = CONFIG.leverage    || 25;
+  const maxLev = CONFIG.leverage    || 10;
   const minLev = CONFIG.minLeverage || 5;
   let lev;
   // Extreme regime = highest probability = max leverage
   if (bias === "extreme_bounce" || bias === "extreme_resistance") {
-    lev = maxLev;                          // 25x — maximum conviction
-  } else if (confidencePct >= 80) {
-    lev = maxLev;                          // 25x
-  } else if (confidencePct >= 70) {
-    lev = Math.min(20, maxLev);            // 20x
+    lev = maxLev;                          // 10x — maximum conviction
   } else if (confidencePct >= 55) {
-    lev = Math.min(15, maxLev);            // 15x
-  } else if (confidencePct >= 40) {
-    lev = Math.min(10, maxLev);            // 10x
+    lev = maxLev;                          // 10x — good setup
   } else {
-    lev = Math.max(minLev, 5);             // 5x — minimum
+    lev = minLev;                          // 5x — lower confidence
   }
   return lev;
 }
