@@ -1463,6 +1463,13 @@ async function analyseSymbol(symbol, rules, log, learning) {
     return null;
   }
 
+  // Per-symbol dedup — never open a second trade on the same symbol
+  const alreadyOpenOnSymbol = log.trades.some(t => t.orderPlaced && !t.outcome && t.symbol === symbol);
+  if (alreadyOpenOnSymbol) {
+    console.log(`\n  ⏸️  Already have an open trade on ${symbol} — skipping`);
+    return null;
+  }
+
   // Per-symbol risk sizing
   // Preview margin estimate (actual size set by calcConfidence after safety check passes)
   const riskAmt      = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
