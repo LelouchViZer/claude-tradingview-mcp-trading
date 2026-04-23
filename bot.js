@@ -629,12 +629,15 @@ async function closePosition(symbol, originalSide, quantity) {
     symbol,
     side: closeSide,
     orderType: "market",
-    quantity: parseFloat(quantity).toFixed(6),
     ...(CONFIG.tradeMode === "futures" && {
+      size: parseFloat(quantity).toFixed(6),   // futures uses "size"
       productType: "USDT-FUTURES",
       marginMode: "isolated",
       marginCoin: "USDT",
       reduceOnly: "YES",
+    }),
+    ...(CONFIG.tradeMode === "spot" && {
+      quantity: parseFloat(quantity).toFixed(6), // spot uses "quantity"
     }),
   });
 
@@ -1031,10 +1034,57 @@ function calcSlTp(entryPrice, side, regime = "standard", oversoldStreak = 0) {
   return { stopLoss, takeProfit, rrMultiplier };
 }
 
-async function placeBitGetOrder(symbol, side, sizeUSD, price) {
-  const quantity = (sizeUSD / price).toFixed(6);
+// Set leverage on BitGet before placing a futures order
+async function setLeverageOnExchange(symbol, leverage, holdSide) {
+  if (CONFIG.tradeMode !== "futures") return;
   const timestamp = Date.now().toString();
-  const { stopLoss, takeProfit } = calcSlTp(price, side);
+  const path = "/api/v2/mix/account/set-leverage";
+  const body = JSON.stringify({
+    symbol,
+    productType: "USDT-FUTURES",
+    marginCoin: "USDT",
+    leverage: leverage.toString(),
+    holdSide, // "long" or "short"
+  });
+  const signature = signBitGet(timestamp, "POST", path, body);
+  try {
+    const res = await fetch(`${CONFIG.bitget.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ACCESS-KEY": CONFIG.bitget.apiKey,
+        "ACCESS-SIGN": signature,
+        "ACCESS-TIMESTAMP": timestamp,
+        "ACCESS-PASSPHRASE": CONFIG.bitget.passphrase,
+      },
+      body,
+    });
+    const data = await res.json();
+    if (data.code === "00000") {
+      console.log(`⚙️  Leverage set: ${symbol} ${holdSide} → ${leverage}x`);
+    } else {
+      console.log(`⚠️  Set leverage warning: ${data.msg} (continuing — may already be set)`);
+    }
+  } catch (e) {
+    console.log(`⚠️  Set leverage error: ${e.message} (continuing)`);
+  }
+}
+
+async function placeBitGetOrder(symbol, side, sizeUSD, price, lev = 1, regime = "standard", streak = 0) {
+  // BUG FIX: For futures, position size = margin × leverage. Quantity = position / price.
+  // For spot, no leverage — quantity = budget / price.
+  const quantity = CONFIG.tradeMode === "futures"
+    ? ((sizeUSD * lev) / price).toFixed(6)
+    : (sizeUSD / price).toFixed(6);
+  const timestamp = Date.now().toString();
+  // BUG FIX: Pass regime + streak so extreme bounce/resistance gets correct RR (3:1 or 4:1)
+  const { stopLoss, takeProfit } = calcSlTp(price, side, regime, streak);
+
+  // BUG FIX: Set leverage on exchange BEFORE placing the order
+  if (CONFIG.tradeMode === "futures") {
+    const holdSide = side === "buy" ? "long" : "short";
+    await setLeverageOnExchange(symbol, lev, holdSide);
+  }
 
   const path =
     CONFIG.tradeMode === "spot"
@@ -1045,13 +1095,17 @@ async function placeBitGetOrder(symbol, side, sizeUSD, price) {
     symbol,
     side,
     orderType: "market",
-    quantity,
+    size: quantity,  // BitGet futures uses "size" not "quantity"
     ...(CONFIG.tradeMode === "futures" && {
       productType: "USDT-FUTURES",
       marginMode: "isolated",
       marginCoin: "USDT",
+      leverage: lev.toString(),
       presetStopLossPrice: stopLoss.toString(),
       presetStopSurplusPrice: takeProfit.toString(),
+    }),
+    ...(CONFIG.tradeMode === "spot" && {
+      quantity,  // spot uses "quantity"
     }),
   });
 
@@ -1610,29 +1664,41 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.quantity    = finalTradeSize / price;
         logEntry.leverage    = dynLev;
         // Telegram: trade opened
-        const modeTag = CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE";
         const dirTag  = side === "buy" ? "📈 LONG" : "📉 SHORT";
         await tg(
-          `${dirTag} <b>${symbol}</b> ${modeTag}\n` +
-          `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${CONFIG.leverage}x\n` +
+          `${dirTag} <b>${symbol}</b> 📋 PAPER\n` +
+          `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)}\n` +
           `SL: $${stopLoss} | TP: $${takeProfit}\n` +
           `RR: 1:${rrMultiplier} | Regime: ${bias}`
         );
       } else {
-        console.log(`\n  🔴 PLACING LIVE ORDER — $${finalTradeSize.toFixed(2)} ${side.toUpperCase()} ${symbol}`);
+        const positionUSD = finalTradeSize * dynLev;
+        console.log(`\n  🔴 PLACING LIVE ORDER — ${side.toUpperCase()} ${symbol}`);
+        console.log(`     Margin: $${finalTradeSize.toFixed(2)} × ${dynLev}x = $${positionUSD.toFixed(2)} position`);
         try {
-          const order = await placeBitGetOrder(symbol, side, finalTradeSize, price);
+          // BUG FIX: Pass dynLev, bias (regime), and streak so SL/TP/RR are correct
+          const order = await placeBitGetOrder(symbol, side, finalTradeSize, price, dynLev, bias, marketRegime.streak || 0);
           logEntry.orderPlaced = true;
-          logEntry.orderId = order.orderId;
-          logEntry.stopLoss = order.stopLoss;
-          logEntry.takeProfit = order.takeProfit;
-          logEntry.side = side;
-          logEntry.quantity = finalTradeSize / price;
+          logEntry.orderId     = order.orderId;
+          logEntry.stopLoss    = order.stopLoss;
+          logEntry.takeProfit  = order.takeProfit;
+          logEntry.side        = side;
+          logEntry.leverage    = dynLev;  // BUG FIX: save actual leverage for correct P&L tracking
+          logEntry.quantity    = (finalTradeSize * dynLev) / price;  // BUG FIX: quantity is position/price
           console.log(`  ✅ ORDER PLACED — ${order.orderId}`);
           console.log(`  🛡️  SL: $${order.stopLoss} | TP: $${order.takeProfit}`);
+          // Telegram: live trade opened
+          const dirTag = side === "buy" ? "📈 LONG" : "📉 SHORT";
+          await tg(
+            `${dirTag} <b>${symbol}</b> 💸 LIVE\n` +
+            `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${dynLev}x = $${positionUSD.toFixed(2)}\n` +
+            `SL: $${order.stopLoss} | TP: $${order.takeProfit}\n` +
+            `Risk: $${(CONFIG.portfolioValue * CONFIG.riskPerTradePct / 100).toFixed(2)} | Regime: ${bias}`
+          );
         } catch (err) {
           console.log(`  ❌ ORDER FAILED — ${err.message}`);
           logEntry.error = err.message;
+          await tg(`❌ ORDER FAILED — ${symbol}\n${err.message}`);
         }
       }
     }
