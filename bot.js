@@ -2045,11 +2045,26 @@ async function run() {
   console.log(`${"═".repeat(57)}\n`);
 }
 
+const SCAN_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+async function loop() {
+  // Run once immediately, then repeat every 15 minutes forever.
+  // This replaces the Railway cron — Railway just keeps this process alive.
+  while (true) {
+    try {
+      await run();
+    } catch (err) {
+      console.error("Bot error:", err);
+      // Never crash — log the error and wait for next scan
+      try { await tg(`⚠️ Bot error (will retry in 15 min):\n${err.message}`); } catch {}
+    }
+    console.log(`\n⏰ Next scan in 15 minutes — ${new Date(Date.now() + SCAN_INTERVAL_MS).toISOString()}\n`);
+    await new Promise(r => setTimeout(r, SCAN_INTERVAL_MS));
+  }
+}
+
 if (process.argv.includes("--tax-summary")) {
   generateTaxSummary();
 } else {
-  run().catch((err) => {
-    console.error("Bot error:", err);
-    process.exit(1);
-  });
+  loop();
 }
