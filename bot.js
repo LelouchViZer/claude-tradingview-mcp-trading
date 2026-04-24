@@ -945,6 +945,10 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
     } else {
       const blockReason = volumeSurging && rsi3 > 65
         ? `RSI overbought but volume SURGING — this is a pump, not a top. Waiting for volume to fade.`
+        : rsi3 > 65
+        ? `RSI overbought (${rsi3.toFixed(1)}) but price too far from VWAP (${distFromVWAP.toFixed(1)}% > ${vwapProximity}%) — waiting for pullback`
+        : rsi3 < 35
+        ? `RSI oversold (${rsi3.toFixed(1)}) but price too far from VWAP (${distFromVWAP.toFixed(1)}% > ${vwapProximity}%) — waiting for bounce to VWAP`
         : `RSI ${rsi3.toFixed(1)} mid-range — waiting for RSI < 35 or > 65`;
       console.log(`  Bias: RANGING 🔄 — ${blockReason}\n`);
       results.push({ label: "Range signal", required: "RSI extreme + volume not surging", actual: `RSI ${rsi3.toFixed(1)}, Vol ${volTrend}`, pass: false });
