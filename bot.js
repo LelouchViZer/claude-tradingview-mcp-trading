@@ -658,42 +658,43 @@ async function closePosition(symbol, originalSide, quantity) {
   return data;
 }
 
-// ─── Market Data (Binance public API — free, no auth) ───────────────────────
+// ─── Market Data (Bitget futures API — no auth, no geo-blocks) ──────────────
 
 async function fetchCandles(symbol, interval, limit = 100) {
-  // Map our timeframe format to Binance interval format
-  const intervalMap = {
-    "1m": "1m",
-    "3m": "3m",
-    "5m": "5m",
+  // Bitget futures granularity: minutes lowercase, hours/days uppercase
+  const granularityMap = {
+    "1m":  "1m",
+    "3m":  "3m",
+    "5m":  "5m",
     "15m": "15m",
     "30m": "30m",
-    "1H": "1h",
-    "4H": "4h",
-    "1D": "1d",
-    "1W": "1w",
+    "1H":  "1H",
+    "4H":  "4H",
+    "1D":  "1D",
+    "1W":  "1W",
   };
-  const binanceInterval = intervalMap[interval] || "1m";
+  const granularity = granularityMap[interval] || "4H";
 
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${limit}`;
+  // Use futures (mix) endpoint — matches what we trade and has no geo-blocks
+  const url = `https://api.bitget.com/api/v2/mix/market/candles?symbol=${symbol}&productType=USDT-FUTURES&granularity=${granularity}&limit=${limit}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Binance API error ${res.status} for ${symbol}`);
+  if (!res.ok) throw new Error(`Bitget API error ${res.status} for ${symbol}`);
   const data = await res.json();
 
-  // Binance returns an error object instead of array if symbol not found
-  if (!Array.isArray(data)) {
-    throw new Error(`${symbol} not available on Binance: ${data.msg || JSON.stringify(data)}`);
+  if (data.code !== "00000") {
+    throw new Error(`${symbol} candle error: ${data.msg || JSON.stringify(data)}`);
   }
-  if (data.length < 10) {
-    throw new Error(`Not enough candle data for ${symbol} (got ${data.length})`);
+  if (!data.data || data.data.length < 10) {
+    throw new Error(`Not enough candle data for ${symbol} (got ${data.data?.length ?? 0})`);
   }
 
-  return data.map((k) => ({
-    time: k[0],
-    open: parseFloat(k[1]),
-    high: parseFloat(k[2]),
-    low: parseFloat(k[3]),
-    close: parseFloat(k[4]),
+  // Bitget returns newest-first — reverse to oldest-first so indicators work correctly
+  return data.data.reverse().map((k) => ({
+    time:   parseInt(k[0]),
+    open:   parseFloat(k[1]),
+    high:   parseFloat(k[2]),
+    low:    parseFloat(k[3]),
+    close:  parseFloat(k[4]),
     volume: parseFloat(k[5]),
   }));
 }
@@ -1867,9 +1868,9 @@ async function run() {
   const currentPrices = {};
   for (const symbol of CONFIG.symbols) {
     try {
-      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+      const res = await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${symbol}`);
       const data = await res.json();
-      currentPrices[symbol] = parseFloat(data.price);
+      currentPrices[symbol] = parseFloat(data.data?.[0]?.lastPr || 0);
     } catch { /* ignore */ }
   }
   // Check SL/TP hits
