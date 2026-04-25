@@ -1516,6 +1516,19 @@ async function analyseSymbol(symbol, rules, log, learning) {
     return null;
   }
 
+  // Re-entry cooldown — wait at least 4 hours after any trade closes on this symbol.
+  // Prevents the bot from immediately re-entering the same losing setup in the same scan.
+  const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+  const recentlyClosed = log.trades.find(t =>
+    t.symbol === symbol && t.outcome && t.closedAt &&
+    new Date(t.closedAt).getTime() > fourHoursAgo
+  );
+  if (recentlyClosed) {
+    const minutesAgo = Math.round((Date.now() - new Date(recentlyClosed.closedAt).getTime()) / 60000);
+    console.log(`\n  ⏸️  ${symbol} — ${recentlyClosed.outcome} closed ${minutesAgo}min ago, waiting 4H before re-entry`);
+    return null;
+  }
+
   // Per-symbol risk sizing
   // Preview margin estimate (actual size set by calcConfidence after safety check passes)
   const riskAmt      = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
@@ -1980,7 +1993,7 @@ async function run() {
         `  Balance: $${balance.toFixed(2)} (started $${CONFIG.portfolioValue})`,
         `  Open now: ${openTrades.length} trade${openTrades.length !== 1 ? "s" : ""}`,
         ``,
-        `Risk: $75/trade | Leverage: 5–25x dynamic`,
+        `Risk: $${(CONFIG.portfolioValue * CONFIG.riskPerTradePct / 100).toFixed(2)}/trade | Leverage: ${CONFIG.minLeverage}–${CONFIG.leverage}x dynamic`,
         `Mode: ${CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE"}`,
       ].join("\n");
 
