@@ -231,8 +231,6 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
   }
 
   if (updated) {
-    // Auto-adapt thresholds based on last 10 closed trades
-    adaptThresholds(log, learning);
     learning.lastUpdated = new Date().toISOString();
   }
   return updated;
@@ -251,9 +249,9 @@ function adaptThresholds(log, learning) {
     learning.rsiEntryThreshold = Math.max(35, learning.rsiEntryThreshold - 2);
     note.push(`Win rate ${recentWinRate.toFixed(0)}% — tightened RSI threshold to ${learning.rsiEntryThreshold}`);
   }
-  // Win rate good → relax to catch more setups (up to 50)
-  else if (recentWinRate > 60 && learning.rsiEntryThreshold < 50) {
-    learning.rsiEntryThreshold = Math.min(50, learning.rsiEntryThreshold + 2);
+  // Win rate good → relax to catch more setups (cap at 45 — never go above 45, that kills signal quality)
+  else if (recentWinRate > 60 && learning.rsiEntryThreshold < 45) {
+    learning.rsiEntryThreshold = Math.min(45, learning.rsiEntryThreshold + 2);
     note.push(`Win rate ${recentWinRate.toFixed(0)}% — relaxed RSI threshold to ${learning.rsiEntryThreshold}`);
   }
 
@@ -1075,15 +1073,18 @@ async function setLeverageOnExchange(symbol, leverage, holdSide) {
   }
 }
 
-async function placeBitGetOrder(symbol, side, sizeUSD, price, lev = 1, regime = "standard", streak = 0) {
+async function placeBitGetOrder(symbol, side, sizeUSD, price, lev = 1, regime = "standard", streak = 0, customSl = null, customTp = null) {
   // BUG FIX: For futures, position size = margin × leverage. Quantity = position / price.
   // For spot, no leverage — quantity = budget / price.
   const quantity = CONFIG.tradeMode === "futures"
     ? ((sizeUSD * lev) / price).toFixed(6)
     : (sizeUSD / price).toFixed(6);
   const timestamp = Date.now().toString();
-  // BUG FIX: Pass regime + streak so extreme bounce/resistance gets correct RR (3:1 or 4:1)
-  const { stopLoss, takeProfit } = calcSlTp(price, side, regime, streak);
+  // BUG FIX: Support custom SL/TP (used by scalp scanner — 0.25%/0.50% instead of 1.5%/3.0%)
+  // Falls back to standard calcSlTp for regular strategy trades.
+  const { stopLoss, takeProfit } = (customSl !== null && customTp !== null)
+    ? { stopLoss: customSl, takeProfit: customTp }
+    : calcSlTp(price, side, regime, streak);
 
   // BUG FIX: Set leverage on exchange BEFORE placing the order
   if (CONFIG.tradeMode === "futures") {
@@ -1746,6 +1747,19 @@ async function scanForScalps(symbol, log, learning) {
   ).length;
   if (openOnSymbol > 0) return null;
 
+  // BUG FIX: Respect 4H re-entry cooldown (same rule as main scanner)
+  // Prevents scalp opening immediately after a SL/TP hit on the same coin
+  const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+  const recentlyClosed = log.trades.find(t =>
+    t.symbol === symbol && t.outcome && t.closedAt &&
+    new Date(t.closedAt).getTime() > fourHoursAgo
+  );
+  if (recentlyClosed) return null;
+
+  // BUG FIX: Respect learning symbol cooldowns (consecutive-loss pause)
+  const symCd = learning?.symbolCooldowns?.[symbol];
+  if (symCd?.cooldownUntil && new Date() < new Date(symCd.cooldownUntil)) return null;
+
   try {
     const candles5m = await fetchCandles(symbol, "5m", 60);
     const closes5m  = candles5m.map(c => c.close);
@@ -1830,14 +1844,19 @@ async function scanForScalps(symbol, log, learning) {
     if (CONFIG.paperTrading) {
       logEntry.orderPlaced = true;
       logEntry.orderId     = `SCALP-${Date.now()}`;
+      // BUG FIX: quantity for futures = position / price (margin × lev / price)
+      logEntry.quantity    = (scalpSize * lev) / price;
       console.log(`\n  📋 PAPER SCALP LOGGED ✅`);
     } else {
       try {
-        const order = await placeBitGetOrder(symbol, scalpBias, scalpSize, price);
+        // BUG FIX: pass lev so futures quantity = scalpSize*lev/price (not scalpSize/price)
+        // BUG FIX: pass stopLoss/takeProfit so exchange gets 0.25%/0.50% not 1.5%/3.0%
+        const order = await placeBitGetOrder(symbol, scalpBias, scalpSize, price, lev, "scalp", 0, stopLoss, takeProfit);
         logEntry.orderPlaced  = true;
         logEntry.orderId      = order.orderId;
         logEntry.stopLoss     = order.stopLoss;
         logEntry.takeProfit   = order.takeProfit;
+        logEntry.quantity     = (scalpSize * lev) / price;  // BUG FIX: correct futures quantity
         console.log(`  ✅ SCALP ORDER PLACED — ${order.orderId}`);
       } catch (err) {
         console.log(`  ❌ SCALP FAILED — ${err.message}`);
@@ -1882,12 +1901,14 @@ async function run() {
   const log = loadLog();
 
   // ── Check outcomes of open paper trades ──
+  // BUG FIX: Use futures ticker so SL/TP tracking matches actual futures prices (not spot)
   const currentPrices = {};
   for (const symbol of CONFIG.symbols) {
     try {
-      const res = await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${symbol}`);
+      const res = await fetch(`https://api.bitget.com/api/v2/mix/market/ticker?symbol=${symbol}&productType=USDT-FUTURES`);
       const data = await res.json();
-      currentPrices[symbol] = parseFloat(data.data?.[0]?.lastPr || 0);
+      // Futures ticker returns a single object (not an array) in data.data
+      currentPrices[symbol] = parseFloat(data.data?.lastPr || 0);
     } catch { /* ignore */ }
   }
   // Check SL/TP hits
@@ -1897,9 +1918,11 @@ async function run() {
   const earlyExitUpdated = await checkEarlyExits(log, learning, currentPrices);
 
   if (outcomesUpdated || earlyExitUpdated) {
+    // BUG FIX: call adaptThresholds exactly once per scan, not twice
+    // (was also called inside updateTradeOutcomes — removed from there)
+    adaptThresholds(log, learning);
     saveLog(log);
     saveLearning(learning);
-    if (earlyExitUpdated) adaptThresholds(log, learning);
   }
 
   const withinLimits = checkTradeLimits(log);
@@ -2021,7 +2044,9 @@ async function run() {
 
     try {
       const logEntry = await analyseSymbol(symbol, rules, log, learning);
-      if (logEntry) {
+      // BUG FIX: Only persist and log trades that were actually placed.
+      // Blocked entries (allPass=false) were pushing ~1,344 phantom records/day.
+      if (logEntry && logEntry.orderPlaced) {
         log.trades.push(logEntry);
         saveLog(log);
         writeTradeCsv(logEntry);
@@ -2042,7 +2067,7 @@ async function run() {
   for (const symbol of CONFIG.symbols) {
     try {
       const scalpEntry = await scanForScalps(symbol, log, learning);
-      if (scalpEntry) {
+      if (scalpEntry && scalpEntry.orderPlaced) {
         scalpsFound++;
         log.trades.push(scalpEntry);
         saveLog(log);
