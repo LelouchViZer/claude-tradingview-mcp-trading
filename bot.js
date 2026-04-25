@@ -1,9 +1,9 @@
 /**
  * Claude + TradingView MCP — Automated Trading Bot
  *
- * Cloud mode: runs on Railway on a schedule. Pulls candle data direct from
- * Binance (free, no auth), calculates all indicators, runs safety check,
- * executes via BitGet if everything lines up.
+ * Cloud mode: runs on Railway as a forever-loop (15 min intervals). Pulls candle
+ * data from Bitget futures API (no auth needed, no geo-blocks), calculates all
+ * indicators, runs safety check, executes via BitGet if everything lines up.
  *
  * Local mode: run manually — node bot.js
  * Cloud mode: deploy to Railway, set env vars, Railway triggers on cron schedule
@@ -142,8 +142,8 @@ function loadLearning() {
   const defaults = {
     totalTrades: 0, wins: 0, losses: 0, winRate: 0,
     // Adaptive thresholds — bot adjusts these based on performance
-    rsiEntryThreshold: 30,        // Default: RSI < 30 to enter long
-    vwapProximityPct: 1.5,        // Default: price within 1.5% of VWAP
+    rsiEntryThreshold: 40,        // Default: RSI < 40 to enter long (30 is too strict for 14 symbols)
+    vwapProximityPct: 2.5,        // Default: price within 2.5% of VWAP
     entryTF: "15m",               // Default lower TF for entry timing
     symbolStats: {},              // Per-symbol win/loss tracking
     symbolCooldowns: {},          // Per-symbol cooldown after consecutive losses
@@ -606,7 +606,9 @@ async function checkEarlyExits(log, learning, currentPrices) {
         updated = true;
       }
     } catch (err) {
-      // Don't crash — just skip this trade's early exit check
+      // Don't crash — reset warning count since we have no fresh data to confirm it
+      // (avoids false early exits if a candle fetch fails mid-warning sequence)
+      if (trade._earlyExitWarnings > 0) trade._earlyExitWarnings = 0;
     }
 
     await new Promise(r => setTimeout(r, 600));
@@ -1667,7 +1669,7 @@ async function analyseSymbol(symbol, rules, log, learning) {
         logEntry.stopLoss    = stopLoss;
         logEntry.takeProfit  = takeProfit;
         logEntry.side        = side;
-        logEntry.quantity    = finalTradeSize / price;
+        logEntry.quantity    = (finalTradeSize * dynLev) / price;  // futures: position / price
         logEntry.leverage    = dynLev;
         // Telegram: trade opened
         const dirTag  = side === "buy" ? "📈 LONG" : "📉 SHORT";
