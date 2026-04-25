@@ -113,12 +113,12 @@ const CONFIG = {
     passphrase: process.env.BITGET_PASSPHRASE,
     baseUrl: process.env.BITGET_BASE_URL || "https://api.bitget.com",
   },
-  // All symbols get equal $12.5 sizing — 1.0 = full size
+  // All symbols equal sizing
   symbolRiskPct: {
-    "BTCUSDT":  1.0,
-    "ETHUSDT":  1.0,
-    "SOLUSDT":  1.0,
-    "XAUTUSDT": 1.0,
+    "BTCUSDT":  1.0, "ETHUSDT":  1.0, "SOLUSDT":  1.0, "BNBUSDT":  1.0,
+    "DOGEUSDT": 1.0, "ADAUSDT":  1.0, "LINKUSDT": 1.0, "AVAXUSDT": 1.0,
+    "DOTUSDT":  1.0, "LTCUSDT":  1.0, "ATOMUSDT": 1.0, "NEARUSDT": 1.0,
+    "TRXUSDT":  1.0, "XAUTUSDT": 1.0,
   },
 };
 
