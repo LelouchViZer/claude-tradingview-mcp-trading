@@ -1939,14 +1939,14 @@ async function run() {
   const log = loadLog();
 
   // ── Check outcomes of open paper trades ──
-  // BUG FIX: Use futures ticker so SL/TP tracking matches actual futures prices (not spot)
+  // Use futures ticker for SL/TP price tracking (matches actual futures execution prices)
+  // NOTE: Bitget /mix/market/ticker returns data.data as an ARRAY even for a single symbol
   const currentPrices = {};
   for (const symbol of CONFIG.symbols) {
     try {
       const res = await fetch(`https://api.bitget.com/api/v2/mix/market/ticker?symbol=${symbol}&productType=USDT-FUTURES`);
       const data = await res.json();
-      // Futures ticker returns a single object (not an array) in data.data
-      currentPrices[symbol] = parseFloat(data.data?.lastPr || 0);
+      currentPrices[symbol] = parseFloat(data.data?.[0]?.lastPr || 0);
     } catch { /* ignore */ }
   }
   // Check SL/TP hits
