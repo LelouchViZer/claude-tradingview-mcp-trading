@@ -1717,12 +1717,16 @@ async function analyseSymbol(symbol, rules, log, learning) {
 
 // ─── Scalp Scanner (5m chart) ────────────────────────────────────────────────
 //
-//  Runs after the main 4H scan on every symbol.
-//  Looks for high-probability micro setups on the 5m chart:
-//    LONG scalp: RSI(3) < 20 + price at VWAP + volume surge + bullish candle
-//    SHORT scalp: RSI(3) > 80 + price at VWAP + volume surge + bearish candle
+//  Momentum-based scalping: see a clear directional move on the 5m chart,
+//  ride it for a quick 0.6% gain with a 0.3% stop. No need for perfect signals —
+//  just confirmed momentum with volume behind it.
 //
-//  Scalp params: $10 margin × 10x = $100 position | SL 0.25% | TP 0.50% (2:1 RR)
+//  LONG  scalp: EMA8 > EMA21, price above EMA8, RSI in momentum zone (40-72),
+//               3+ of last 5 candles bullish, volume above average
+//  SHORT scalp: EMA8 < EMA21, price below EMA8, RSI in momentum zone (28-60),
+//               3+ of last 5 candles bearish, volume above average
+//
+//  Params: $10 margin × 10x = $100 position | SL 0.3% | TP 0.6% (2:1 RR)
 //  Max 3 scalps/day | Only fires if total open margin stays under $25
 
 function countOpenMargin(log) {
@@ -1767,40 +1771,66 @@ async function scanForScalps(symbol, log, learning) {
     const closes5m  = candles5m.map(c => c.close);
     const price     = closes5m[closes5m.length - 1];
     const ema8_5m   = calcEMA(closes5m, 8);
-    const vwap5m    = calcVWAP(candles5m);
+    const ema21_5m  = calcEMA(closes5m, 21);
     const rsi3_5m   = calcRSI(closes5m, 3);
 
-    if (!vwap5m || rsi3_5m === null || isNaN(rsi3_5m)) return null;
+    if (rsi3_5m === null || isNaN(rsi3_5m)) return null;
 
-    const lastC  = candles5m[candles5m.length - 1];
-    const avgVol = candles5m.slice(-6, -1).reduce((s, c) => s + c.volume, 0) / 5;
-    const volRatio   = avgVol > 0 ? lastC.volume / avgVol : 1;
-    const volSurge   = volRatio >= 1.5;
-    const distVwap   = Math.abs((price - vwap5m) / vwap5m) * 100;
-    const bullCandle = lastC.close > lastC.open;
-    const bearCandle = lastC.close < lastC.open;
+    // ── Momentum direction: count bullish vs bearish candles in last 5 ──────
+    const last5 = candles5m.slice(-5);
+    const bullCount = last5.filter(c => c.close > c.open).length;
+    const bearCount = last5.filter(c => c.close < c.open).length;
+
+    // ── Volume: is current volume above the recent average? ─────────────────
+    const avgVol  = candles5m.slice(-11, -1).reduce((s, c) => s + c.volume, 0) / 10;
+    const lastVol = candles5m[candles5m.length - 1].volume;
+    const volRatio = avgVol > 0 ? lastVol / avgVol : 1;
+    const volAboveAvg = volRatio >= 1.2; // momentum needs fuel — even 20% above avg is enough
 
     let scalpBias = null;
     let reason    = "";
 
-    // ── LONG scalp: extreme 5m oversold + at VWAP + volume spike + bullish reversal candle ──
-    if (rsi3_5m < 20 && price <= vwap5m * 1.003 && distVwap < 0.6 && volSurge && bullCandle) {
+    // ── LONG momentum scalp ──────────────────────────────────────────────────
+    //  EMA8 > EMA21 = uptrend structure on 5m
+    //  Price > EMA8 = already riding the trend (not lagging behind)
+    //  RSI 40-72 = momentum zone (not overbought, has room to run)
+    //  3+ of last 5 candles green = consistent directional pressure
+    //  Volume above average = move has real participation behind it
+    if (
+      ema8_5m > ema21_5m &&
+      price > ema8_5m &&
+      rsi3_5m >= 40 && rsi3_5m <= 72 &&
+      bullCount >= 3 &&
+      volAboveAvg
+    ) {
       scalpBias = "buy";
-      reason = `5m RSI(3)=${rsi3_5m.toFixed(1)} oversold + vol surge ${volRatio.toFixed(1)}x + bullish reversal candle`;
+      reason = `5m momentum LONG — EMA8>EMA21, RSI(3)=${rsi3_5m.toFixed(1)}, ${bullCount}/5 bull candles, vol ${volRatio.toFixed(1)}x avg`;
     }
 
-    // ── SHORT scalp: extreme 5m overbought + at VWAP + volume spike + bearish reversal candle ──
-    if (rsi3_5m > 80 && price >= vwap5m * 0.997 && distVwap < 0.6 && volSurge && bearCandle) {
+    // ── SHORT momentum scalp ─────────────────────────────────────────────────
+    //  EMA8 < EMA21 = downtrend structure on 5m
+    //  Price < EMA8 = below the fast EMA, riding the down move
+    //  RSI 28-60 = momentum zone (not oversold, has room to drop)
+    //  3+ of last 5 candles red = consistent selling pressure
+    //  Volume above average = real participation
+    if (
+      ema8_5m < ema21_5m &&
+      price < ema8_5m &&
+      rsi3_5m >= 28 && rsi3_5m <= 60 &&
+      bearCount >= 3 &&
+      volAboveAvg
+    ) {
       scalpBias = "sell";
-      reason = `5m RSI(3)=${rsi3_5m.toFixed(1)} overbought + vol surge ${volRatio.toFixed(1)}x + bearish reversal candle`;
+      reason = `5m momentum SHORT — EMA8<EMA21, RSI(3)=${rsi3_5m.toFixed(1)}, ${bearCount}/5 bear candles, vol ${volRatio.toFixed(1)}x avg`;
     }
 
     if (!scalpBias) return null;
 
-    // Scalp always uses $10 margin (minimum, safe sizing)
+    // Scalp sizing: $10 margin × 10x = $100 position
+    // SL 0.3% / TP 0.6% = 2:1 RR (slightly wider than before to let momentum breathe)
     const scalpSize  = 10;
-    const scalpSlPct = 0.25;
-    const scalpTpPct = 0.50;
+    const scalpSlPct = 0.30;
+    const scalpTpPct = 0.60;
     const lev        = CONFIG.leverage;
     const posUSD     = scalpSize * lev;
 
@@ -1816,7 +1846,7 @@ async function scanForScalps(symbol, log, learning) {
 
     console.log(`\n  ⚡ SCALP SIGNAL — ${scalpBias.toUpperCase()} ${symbol}`);
     console.log(`     ${reason}`);
-    console.log(`     5m: Price $${price.toFixed(2)} | VWAP $${vwap5m.toFixed(2)} | EMA8 $${ema8_5m.toFixed(2)}`);
+    console.log(`     5m: Price $${price.toFixed(4)} | EMA8 $${ema8_5m.toFixed(4)} | EMA21 $${ema21_5m.toFixed(4)}`);
     console.log(`     Margin: $${scalpSize} × ${lev}x = $${posUSD} position`);
     console.log(`     SL: $${stopLoss} (-${scalpSlPct}%) → risk $${riskUSD.toFixed(2)}`);
     console.log(`     TP: $${takeProfit} (+${scalpTpPct}%) → reward $${rewardUSD.toFixed(2)}`);
@@ -1846,9 +1876,15 @@ async function scanForScalps(symbol, log, learning) {
     if (CONFIG.paperTrading) {
       logEntry.orderPlaced = true;
       logEntry.orderId     = `SCALP-${Date.now()}`;
-      // BUG FIX: quantity for futures = position / price (margin × lev / price)
       logEntry.quantity    = (scalpSize * lev) / price;
       console.log(`\n  📋 PAPER SCALP LOGGED ✅`);
+      const scalpDir = scalpBias === "buy" ? "⚡📈 SCALP LONG" : "⚡📉 SCALP SHORT";
+      await tg(
+        `${scalpDir} <b>${symbol}</b> 📋 PAPER\n` +
+        `${reason}\n` +
+        `Entry: <b>$${price.toFixed(4)}</b> | $${scalpSize} × ${lev}x = $${posUSD}\n` +
+        `SL: $${stopLoss} | TP: $${takeProfit} | RR: 2:1`
+      );
     } else {
       try {
         // BUG FIX: pass lev so futures quantity = scalpSize*lev/price (not scalpSize/price)
