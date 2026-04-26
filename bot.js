@@ -469,6 +469,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         if (improved) {
           console.log(`  🔒 Trailing SL updated → locked in +1% (75% to TP) | New SL: $${lockedSL.toFixed(2)}`);
           trade.stopLoss = parseFloat(lockedSL.toFixed(2));
+          updated = true; // BUG FIX: persist the new SL so it survives the next loadLog()
         }
       } else if (tpProgress >= 0.50 && trade.stopLoss) {
         // Move SL to breakeven
@@ -478,6 +479,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         if (improved) {
           console.log(`  🔒 Trailing SL → moved to breakeven $${trade.price} (50% to TP)`);
           trade.stopLoss = trade.price;
+          updated = true; // BUG FIX: persist the new SL so it survives the next loadLog()
         }
       }
 
@@ -1863,7 +1865,7 @@ async function scanForScalps(symbol, log, learning) {
       leverage:     lev,
       stopLoss,
       takeProfit,
-      quantity:     scalpSize / price,
+      quantity:     (scalpSize * lev) / price,  // futures: position / price (lev applied)
       orderPlaced:  false,
       orderId:      null,
       paperTrading: CONFIG.paperTrading,
