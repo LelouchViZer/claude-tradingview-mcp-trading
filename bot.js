@@ -1325,9 +1325,9 @@ function generateTaxSummary() {
   const lines = readFileSync(CSV_FILE, "utf8").trim().split("\n");
   const rows = lines.slice(1).map((l) => l.split(","));
 
-  const live = rows.filter((r) => r[11] === "LIVE");
-  const paper = rows.filter((r) => r[11] === "PAPER");
-  const blocked = rows.filter((r) => r[11] === "BLOCKED");
+  const live = rows.filter((r) => r[13] === "LIVE");
+  const paper = rows.filter((r) => r[13] === "PAPER");
+  const blocked = rows.filter((r) => r[13] === "BLOCKED");
 
   const totalVolume = live.reduce((sum, r) => sum + parseFloat(r[7] || 0), 0);
   const totalFees = live.reduce((sum, r) => sum + parseFloat(r[8] || 0), 0);
@@ -1371,7 +1371,8 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
   const rsiThreshold = learning.rsiEntryThreshold || 30;
   let rsiDepth = 0;
   if (rsi3 !== null && !isNaN(rsi3)) {
-    if (bias === "bullish") {
+    // extreme_bounce is a LONG (bullish) entry — use the bullish depth formula
+    if (bias === "bullish" || bias === "extreme_bounce") {
       rsiDepth = Math.min(1, Math.max(0, (rsiThreshold - rsi3) / rsiThreshold));
     } else {
       const upper = 100 - rsiThreshold;
@@ -1468,17 +1469,19 @@ async function confirmEntryOnLowerTF(symbol, bias, learning) {
     }
 
     const lastCandle        = candles5m[candles5m.length - 1];
-    const confirmationCandle = bias === "bullish"
+    // extreme_bounce is a LONG entry — treat same as bullish for all directional checks
+    const isLongBias = bias === "bullish" || bias === "extreme_bounce";
+    const confirmationCandle = isLongBias
       ? lastCandle.close > lastCandle.open
       : lastCandle.close < lastCandle.open;
     const distFromVwap5m    = Math.abs((price5m - vwap5m) / vwap5m) * 100;
 
     // Relaxed thresholds: RSI<50 for longs (not 30), within 3% of VWAP (not 1.5%)
     const checks = {
-      rsiFavourable:  bias === "bullish" ? rsi3_5m < 50 : rsi3_5m > 50,
+      rsiFavourable:  isLongBias ? rsi3_5m < 50 : rsi3_5m > 50,
       nearVwap:       distFromVwap5m < 3.0,
       confirmCandle:  confirmationCandle,
-      emaAligned:     bias === "bullish" ? price5m > ema8_5m * 0.998 : price5m < ema8_5m * 1.002,
+      emaAligned:     isLongBias ? price5m > ema8_5m * 0.998 : price5m < ema8_5m * 1.002,
     };
 
     const passCount = Object.values(checks).filter(Boolean).length;
@@ -2076,9 +2079,10 @@ async function run() {
       console.log(`\n  ⏸️  ${symbol} — on cooldown for ${minsLeft} more min (${cd.consecutiveLosses} consecutive losses)`);
       continue;
     } else if (cd?.cooldownUntil && new Date() >= new Date(cd.cooldownUntil)) {
-      // Cooldown expired — reset
+      // Cooldown expired — reset and persist so we don't redo this every scan
       learning.symbolCooldowns[symbol].cooldownUntil = null;
       learning.symbolCooldowns[symbol].consecutiveLosses = 0;
+      saveLearning(learning);
       console.log(`\n  ✅ ${symbol} — cooldown lifted, back in rotation`);
     }
 
