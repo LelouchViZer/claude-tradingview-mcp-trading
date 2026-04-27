@@ -1,4 +1,5 @@
 .env
 *.log
-safety-check-log.json
 node_modules/
+# safety-check-log.json is intentionally tracked — it's the trade history.
+# It must be committed so Railway redeploys preserve all open/closed trade state.

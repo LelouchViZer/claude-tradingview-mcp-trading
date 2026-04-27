@@ -157,6 +157,7 @@ function saveLog(log) {
 function loadLearning() {
   const defaults = {
     totalTrades: 0, wins: 0, losses: 0, winRate: 0,
+    totalPnlUSD: 0,               // Cumulative P&L — survives Railway redeploys (unlike log file)
     // Adaptive thresholds — bot adjusts these based on performance
     rsiEntryThreshold: 40,        // Default: RSI < 40 to enter long (30 is too strict for 14 symbols)
     vwapProximityPct: 2.5,        // Default: price within 2.5% of VWAP
@@ -232,13 +233,16 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
       if (outcome === "WIN") sym.wins++; else sym.losses++;
       sym.winRate = parseFloat((sym.wins / (sym.wins + sym.losses) * 100).toFixed(1));
 
+      // Accumulate P&L in learning.json — persists across Railway redeploys
+      learning.totalPnlUSD = parseFloat(((learning.totalPnlUSD || 0) + parseFloat(trade.pnlUSD || 0)).toFixed(2));
+
       console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
-      console.log(`     Entry: $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
-      writeExitCsv(trade, log);
+      console.log(`     Entry: $${trade.price} | Exit: $${trade.exitPrice} | P&L: ${trade.pnlPct}%`);
+      writeExitCsv(trade, log, learning);
       recordTradeLesson(trade, log, learning);
       // Telegram: trade closed
       const isW = outcome === "WIN";
-      const bal = calcRunningBalance(log);
+      const bal = calcRunningBalance(log, learning);
       await tg(
         `${isW ? "✅ WIN" : "❌ LOSS"} <b>${trade.symbol}</b>\n` +
         `Entry: $${trade.price} → Exit: $${trade.exitPrice} (${isW ? "TP" : "SL"} hit)\n` +
@@ -605,15 +609,18 @@ async function checkEarlyExits(log, learning, currentPrices) {
         if (isProfit) sym.wins++; else sym.losses++;
         sym.winRate = parseFloat((sym.wins / (sym.wins + sym.losses) * 100).toFixed(1));
 
+        // Accumulate P&L in learning.json — persists across Railway redeploys
+        learning.totalPnlUSD = parseFloat(((learning.totalPnlUSD || 0) + parseFloat(trade.pnlUSD || 0)).toFixed(2));
+
         const emoji = isProfit ? "💰" : "✂️";
         console.log(`\n  ${emoji} EARLY EXIT — ${trade.symbol} (${trade.outcome})`);
         console.log(`     Reason:  ${exitReason}`);
         console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
-        writeExitCsv(trade, log);
+        writeExitCsv(trade, log, learning);
         recordTradeLesson(trade, log, learning);
         // Telegram: early exit
-        const earlyBal = calcRunningBalance(log);
+        const earlyBal = calcRunningBalance(log, learning);
         const earlyIcon = isProfit ? "💰" : "✂️";
         await tg(
           `${earlyIcon} EARLY EXIT <b>${trade.symbol}</b>\n` +
@@ -1244,13 +1251,18 @@ const CSV_HEADERS = [
   "Notes",
 ].join(",");
 
-// Calculate running account balance from all closed trades in the log
-function calcRunningBalance(log) {
-  const start   = CONFIG.portfolioValue;  // $30
+// Calculate running account balance.
+// Prefers learning.totalPnlUSD — stored in learning.json which is committed to git
+// on every push, so it survives Railway redeploys even when safety-check-log.json
+// gets reset to an older version. Falls back to summing from log if learning absent.
+function calcRunningBalance(log, learning) {
+  if (learning != null && typeof learning.totalPnlUSD === "number") {
+    return parseFloat((CONFIG.portfolioValue + learning.totalPnlUSD).toFixed(2));
+  }
   const closedPnl = (log?.trades || [])
     .filter(t => t.outcome && t.pnlUSD != null)
     .reduce((sum, t) => sum + parseFloat(t.pnlUSD || 0), 0);
-  return parseFloat((start + closedPnl).toFixed(2));
+  return parseFloat((CONFIG.portfolioValue + closedPnl).toFixed(2));
 }
 
 // Write a trade OPEN row
@@ -1290,7 +1302,7 @@ function writeTradeCsv(logEntry) {
 }
 
 // Write a trade CLOSE row — this is the one that shows the actual profit/loss
-function writeExitCsv(trade, log) {
+function writeExitCsv(trade, log, learning) {
   const now     = new Date(trade.closedAt || new Date());
   const date    = now.toISOString().slice(0, 10);
   const time    = now.toISOString().slice(11, 19);
@@ -1306,7 +1318,7 @@ function writeExitCsv(trade, log) {
     : parseFloat((pnlPct / 100 * (trade.tradeSize || 0)).toFixed(2));
 
   // Running balance after this trade closes
-  const balance = calcRunningBalance(log);
+  const balance = calcRunningBalance(log, learning);
 
   // Visual result label
   const outcome = trade.outcome || "CLOSED";
@@ -2122,11 +2134,13 @@ async function run() {
       const todayLosses = todayTrades.filter(t => t.outcome === "LOSS").length;
       const todayPnl    = todayTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
 
-      // All-time closed trades
-      const closedTrades = allTrades.filter(t => t.outcome);
-      const totalPnl     = closedTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
-      const balance      = CONFIG.portfolioValue + totalPnl;
-      const openTrades   = allTrades.filter(t => t.orderPlaced && !t.outcome);
+      // All-time stats — use learning.totalPnlUSD (survives Railway deploys);
+      // fall back to summing from log only if the field is missing (old bot versions).
+      const totalPnl = typeof learning.totalPnlUSD === "number"
+        ? learning.totalPnlUSD
+        : allTrades.filter(t => t.outcome).reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
+      const balance  = parseFloat((CONFIG.portfolioValue + totalPnl).toFixed(2));
+      const openTrades = allTrades.filter(t => t.orderPlaced && !t.outcome);
 
       // Yesterday stats (for the summary to show)
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
