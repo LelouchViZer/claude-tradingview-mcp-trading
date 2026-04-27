@@ -201,7 +201,10 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
     if (outcome) {
       const lev = trade.leverage || 1;
       trade.outcome = outcome;
-      trade.exitPrice = currentPrice;
+      // BUG FIX: use the actual SL/TP price as exit (not current market price).
+      // currentPrice may be well past the SL/TP if the scan interval allowed slippage.
+      // pnlPct already used SL/TP — exitPrice must match so logs and Telegram are consistent.
+      trade.exitPrice = outcome === "WIN" ? trade.takeProfit : trade.stopLoss;
       trade.closedAt = new Date().toISOString();
       // P&L: always positive for WIN, negative for LOSS, regardless of side
       if (isSell) {
@@ -238,7 +241,7 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
       const bal = calcRunningBalance(log);
       await tg(
         `${isW ? "✅ WIN" : "❌ LOSS"} <b>${trade.symbol}</b>\n` +
-        `Entry: $${trade.price} → Exit: $${currentPrice}\n` +
+        `Entry: $${trade.price} → Exit: $${trade.exitPrice} (${isW ? "TP" : "SL"} hit)\n` +
         `P&L: <b>${isW ? "+" : ""}${trade.pnlPct}%</b> (${isW ? "+" : ""}$${trade.pnlUSD})\n` +
         `Balance: <b>$${bal}</b>`
       );
@@ -623,7 +626,9 @@ async function checkEarlyExits(log, learning, currentPrices) {
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
           try {
-            await closePosition(trade.symbol, tradeSide, trade.quantity || (trade.tradeSize / trade.price));
+            // BUG FIX: futures close quantity = (margin × leverage) / price, NOT margin / price.
+            // trade.quantity is always set correctly; fallback guards against edge cases.
+            await closePosition(trade.symbol, tradeSide, trade.quantity || ((trade.tradeSize * (trade.leverage || 1)) / trade.price));
           } catch (e) {
             console.log(`  ⚠️  Could not close live position: ${e.message}`);
           }
@@ -1534,7 +1539,7 @@ async function confirmEntryOnLowerTF(symbol, bias, learning) {
 
 // ─── Analyse one symbol ──────────────────────────────────────────────────────
 
-async function analyseSymbol(symbol, rules, log, learning) {
+async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
   console.log(`\n${"─".repeat(57)}`);
   console.log(`  📊 ${symbol}`);
   console.log(`${"─".repeat(57)}\n`);
@@ -1667,6 +1672,27 @@ async function analyseSymbol(symbol, rules, log, learning) {
       tradesToday: countTodaysTrades(log),
     },
   };
+
+  // ── Market-wide regime gate ──────────────────────────────────────────────
+  // During market-wide EUPHORIA (3+ coins RSI>90): block standard bearish shorts.
+  // Mean-reversion shorts fail when the whole market is pumping together.
+  // Only extreme_resistance trades (RSI>90 for 3+ CONSECUTIVE candles on THIS coin)
+  // are allowed — they represent deep individual exhaustion, not just market momentum.
+  //
+  // During market-wide CAPITULATION (3+ coins RSI<5): block standard bullish longs.
+  // Only extreme_bounce trades are allowed — designed specifically for this condition.
+  if (allPass && marketContext.euphoria && bias === "bearish") {
+    console.log(`\n  🚫 ${symbol} — SHORT BLOCKED: market-wide euphoria active (3+ coins RSI>90)`);
+    console.log(`     Mean-reversion shorts are high-risk when the whole market is pumping.`);
+    console.log(`     Only extreme_resistance (RSI>90 for 3+ consecutive candles) allowed.`);
+    return null;
+  }
+  if (allPass && marketContext.capitulation && bias === "bullish") {
+    console.log(`\n  🚫 ${symbol} — LONG BLOCKED: market-wide capitulation active (3+ coins RSI<5)`);
+    console.log(`     Mean-reversion longs are high-risk when the whole market is crashing.`);
+    console.log(`     Only extreme_bounce (RSI<5 for 3+ consecutive candles) allowed.`);
+    return null;
+  }
 
   if (!allPass) {
     const failed = results.filter((r) => !r.pass).map((r) => r.label);
@@ -1964,7 +1990,6 @@ async function scanForScalps(symbol, log, learning) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function run() {
-  checkOnboarding();
   initCsv();
 
   console.log("═══════════════════════════════════════════════════════════");
@@ -2040,9 +2065,12 @@ async function run() {
   }
 
   // ── Market-wide capitulation / euphoria detector ──────────────────────────
-  // Lesson from April 17-20: when 3+ coins are SIMULTANEOUSLY at RSI(3)=0,
-  // that's a market-wide capitulation → expect a major pump across all coins.
-  // Log it, raise confidence, and widen TP targets automatically.
+  // When 3+ coins hit RSI extremes simultaneously, that's a market-wide event.
+  // These flags are ENFORCED in analyseSymbol — not just logged.
+  // EUPHORIA  (3+ coins RSI>90): block standard bearish shorts  (whole market pumping)
+  // CAPITULATION (3+ coins RSI<5): block standard bullish longs (whole market crashing)
+  let marketEuphoria    = false;
+  let marketCapitulation = false;
   try {
     let extremeOversoldCount = 0;
     let extremeOverboughtCount = 0;
@@ -2055,8 +2083,9 @@ async function run() {
       } catch { /* ignore */ }
     }
     if (extremeOversoldCount >= 3) {
-      console.log(`\n  🚨 MARKET CAPITULATION DETECTED — ${extremeOversoldCount}/${CONFIG.symbols.length} coins at RSI(3)<5`);
-      console.log(`     → History shows this precedes a major pump. Bounce entries have wider TP.`);
+      marketCapitulation = true;
+      console.log(`\n  🚨 MARKET CAPITULATION — ${extremeOversoldCount}/${CONFIG.symbols.length} coins RSI(3)<5`);
+      console.log(`     → Standard bullish longs BLOCKED. Only extreme_bounce entries allowed.`);
       if (!learning.capitulationEvents) learning.capitulationEvents = [];
       const lastEvent = learning.capitulationEvents.slice(-1)[0];
       const today = new Date().toISOString().slice(0, 10);
@@ -2064,13 +2093,13 @@ async function run() {
         learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOversold: extremeOversoldCount, type: "oversold" });
         if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
         saveLearning(learning);
-        await tg(`🚨 <b>MARKET CAPITULATION</b>\n${extremeOversoldCount}/${CONFIG.symbols.length} coins at RSI(3) &lt; 5\nHistory: major pump incoming 📈\nBot is watching for bounce entries with wider TP targets.`);
+        await tg(`🚨 <b>MARKET CAPITULATION</b>\n${extremeOversoldCount}/${CONFIG.symbols.length} coins RSI(3) &lt; 5\n⛔ Standard longs BLOCKED — only extreme bounce entries.\nHistory: major pump often follows.`);
       }
     }
     if (extremeOverboughtCount >= 3) {
-      console.log(`\n  🚨 MARKET EUPHORIA DETECTED — ${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3)>90`);
-      console.log(`     → Strong momentum pump in progress. DO NOT short into surging volume.`);
-      console.log(`     → Wait for volume to exhaust before looking for short entries.`);
+      marketEuphoria = true;
+      console.log(`\n  🚨 MARKET EUPHORIA — ${extremeOverboughtCount}/${CONFIG.symbols.length} coins RSI(3)>90`);
+      console.log(`     → Standard bearish shorts BLOCKED. Do not short into a market-wide pump.`);
       if (!learning.capitulationEvents) learning.capitulationEvents = [];
       const lastEvent = learning.capitulationEvents.slice(-1)[0];
       const today = new Date().toISOString().slice(0, 10);
@@ -2078,7 +2107,7 @@ async function run() {
         learning.capitulationEvents.push({ date: today, time: new Date().toISOString().slice(11,19), coinsOverbought: extremeOverboughtCount, type: "overbought" });
         if (learning.capitulationEvents.length > 20) learning.capitulationEvents = learning.capitulationEvents.slice(-20);
         saveLearning(learning);
-        await tg(`🚨 <b>MARKET EUPHORIA</b>\n${extremeOverboughtCount}/${CONFIG.symbols.length} coins at RSI(3) &gt; 90\n⚠️ Strong momentum pump — do NOT short yet.\nWaiting for volume to exhaust before entries.`);
+        await tg(`🚨 <b>MARKET EUPHORIA</b>\n${extremeOverboughtCount}/${CONFIG.symbols.length} coins RSI(3) &gt; 90\n⛔ Standard shorts BLOCKED — whole market is pumping.\nWaiting for volume exhaustion before entries.`);
       }
     }
   } catch { /* don't crash main scan */ }
@@ -2152,7 +2181,7 @@ async function run() {
     }
 
     try {
-      const logEntry = await analyseSymbol(symbol, rules, log, learning);
+      const logEntry = await analyseSymbol(symbol, rules, log, learning, { euphoria: marketEuphoria, capitulation: marketCapitulation });
       // BUG FIX: Only persist and log trades that were actually placed.
       // Blocked entries (allPass=false) were pushing ~1,344 phantom records/day.
       if (logEntry && logEntry.orderPlaced) {
@@ -2171,7 +2200,14 @@ async function run() {
   }
 
   // ── Scalp Scanner — runs after main strategy ──────────────────────────────
+  // BUG FIX: respect the daily trade limit here too.
+  // If the main scan loop hit the limit and broke early, the scalp scanner
+  // would still run and could place up to 3 extra scalp trades on top.
   console.log(`\n── ⚡ Scalp Scanner (5m) ${"─".repeat(35)}\n`);
+  const todayCountForScalp = countTodaysTrades(log);
+  if (todayCountForScalp >= CONFIG.maxTradesPerDay) {
+    console.log(`  ⛔ Daily limit reached (${todayCountForScalp}/${CONFIG.maxTradesPerDay}) — skipping scalp scanner.`);
+  } else {
   let scalpsFound = 0;
   for (const symbol of CONFIG.symbols) {
     try {
@@ -2190,6 +2226,7 @@ async function run() {
     await new Promise(r => setTimeout(r, 600));
   }
   if (scalpsFound === 0) console.log(`\n  No scalp opportunities this scan.`);
+  } // end daily-limit else block
 
   console.log(`\n${"═".repeat(57)}`);
   console.log(`  Scan complete — ${CONFIG.symbols.length} symbols checked`);
@@ -2200,9 +2237,11 @@ async function run() {
 const SCAN_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 async function loop() {
-  // ── Startup health check ──────────────────────────────────────────────────
-  // This fires once when the process starts. If you see this in Railway logs,
-  // the bot is alive. If you receive this on Telegram, notifications are working.
+  // ── One-time startup tasks ────────────────────────────────────────────────
+  // checkOnboarding only runs once at start (not every 15-min scan).
+  // On Railway, running it every scan caused a .env-write → process.exit(0)
+  // restart cycle on first boot. Moving it here fixes that.
+  checkOnboarding();
   console.log("\n🟢 Bot process started — sending Telegram startup ping...");
   const log0  = loadLog();
   const open0 = log0.trades.filter(t => t.orderPlaced && !t.outcome);
