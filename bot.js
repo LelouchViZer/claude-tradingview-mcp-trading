@@ -532,6 +532,10 @@ async function checkEarlyExits(log, learning, currentPrices) {
 
         if (hardInvalidation || approachingSL) {
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
+          // BUG FIX: persist the warning count so 2-scan confirmation actually works.
+          // Without this, loadLog() on the next scan always reads warnings=0 and the
+          // counter never reaches 2 — early exit via the confirmation path never fired.
+          updated = true;
           if (trade._earlyExitWarnings >= 2) {
             shouldExit = true;
             exitReason = hardInvalidation
@@ -544,6 +548,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
           if (trade._earlyExitWarnings > 0) {
             console.log(`  ✅ ${trade.symbol} LONG — warning cleared, setup intact`);
             trade._earlyExitWarnings = 0;
+            updated = true; // persist the clear too
           }
         }
 
@@ -553,6 +558,8 @@ async function checkEarlyExits(log, learning, currentPrices) {
 
         if (hardInvalidation || approachingSL) {
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
+          // BUG FIX: same as above — persist warning count so 2-scan confirmation works
+          updated = true;
           if (trade._earlyExitWarnings >= 2) {
             shouldExit = true;
             exitReason = hardInvalidation
@@ -565,6 +572,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
           if (trade._earlyExitWarnings > 0) {
             console.log(`  ✅ ${trade.symbol} SHORT — warning cleared, setup intact`);
             trade._earlyExitWarnings = 0;
+            updated = true; // persist the clear too
           }
         }
       }
@@ -1256,7 +1264,12 @@ function writeTradeCsv(logEntry) {
     const side = logEntry.side || "buy";
     const lev  = logEntry.leverage || CONFIG.leverage || 1;
     action   = side.toUpperCase() === "BUY" ? "OPEN LONG" : "OPEN SHORT";
-    quantity = ((logEntry.tradeSize || 0) / logEntry.price).toFixed(6);
+    // BUG FIX: use logEntry.quantity (already computed as (margin × lev) / price for futures)
+    // The old formula (tradeSize / price) was the unleveraged spot quantity — 10x too small
+    // for a 10x futures trade, making the CSV record inaccurate for tax/audit purposes.
+    quantity = logEntry.quantity
+      ? parseFloat(logEntry.quantity).toFixed(6)
+      : ((logEntry.tradeSize || 0) / logEntry.price).toFixed(6);
     totalUSD = (logEntry.tradeSize || 0).toFixed(2);
     orderId  = logEntry.orderId || "";
     mode     = logEntry.paperTrading ? "PAPER" : "LIVE";
