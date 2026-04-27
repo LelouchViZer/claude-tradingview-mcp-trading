@@ -74,10 +74,19 @@ function checkOnboarding() {
 const TELEGRAM_TOKEN   = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID   || "";
 
+// Track whether we've already warned about missing Telegram config (avoid log spam)
+let _tgConfigWarned = false;
+
 async function tg(message) {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return; // silently skip if not configured
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
+    if (!_tgConfigWarned) {
+      console.log(`  📵 Telegram not configured — set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID to receive alerts`);
+      _tgConfigWarned = true;
+    }
+    return;
+  }
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -86,7 +95,14 @@ async function tg(message) {
         parse_mode: "HTML",
       }),
     });
-  } catch { /* never crash the bot over a notification */ }
+    const json = await res.json();
+    if (!json.ok) {
+      // Log the real Telegram error (wrong token, bad chat_id, etc.) so it's visible in Railway logs
+      console.log(`  ⚠️  Telegram send failed: ${json.description} (error_code: ${json.error_code})`);
+    }
+  } catch (e) {
+    console.log(`  ⚠️  Telegram network error: ${e.message}`);
+  }
 }
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -1944,15 +1960,33 @@ async function run() {
   const log = loadLog();
 
   // ── Check outcomes of open paper trades ──
-  // Use futures ticker for SL/TP price tracking (matches actual futures execution prices)
+  // BUG FIX: Fetch prices for CONFIG.symbols PLUS any symbol that has an open trade.
+  // Without this, a scalp opened on BNBUSDT would never close if BNBUSDT is not in the
+  // current SYMBOLS env var (price undefined → !currentPrice guard skips it every scan).
   // NOTE: Bitget /mix/market/ticker returns data.data as an ARRAY even for a single symbol
+  const openTradeSymbols = log.trades
+    .filter(t => t.orderPlaced && !t.outcome)
+    .map(t => t.symbol);
+  const allPriceSymbols = [...new Set([...CONFIG.symbols, ...openTradeSymbols])];
+
+  if (openTradeSymbols.length > 0) {
+    console.log(`\n  📂 Open trades: ${openTradeSymbols.join(", ")} — fetching current prices...`);
+  }
+
   const currentPrices = {};
-  for (const symbol of CONFIG.symbols) {
+  for (const symbol of allPriceSymbols) {
     try {
       const res = await fetch(`https://api.bitget.com/api/v2/mix/market/ticker?symbol=${symbol}&productType=USDT-FUTURES`);
       const data = await res.json();
-      currentPrices[symbol] = parseFloat(data.data?.[0]?.lastPr || 0);
-    } catch { /* ignore */ }
+      const price = parseFloat(data.data?.[0]?.lastPr || 0);
+      if (price > 0) {
+        currentPrices[symbol] = price;
+      } else {
+        console.log(`  ⚠️  ${symbol}: ticker returned 0 or missing — SL/TP check skipped this scan`);
+      }
+    } catch (e) {
+      console.log(`  ⚠️  ${symbol}: price fetch error — ${e.message}`);
+    }
   }
   // Check SL/TP hits
   const outcomesUpdated = await updateTradeOutcomes(log, learning, currentPrices);
@@ -2135,6 +2169,25 @@ async function run() {
 const SCAN_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 async function loop() {
+  // ── Startup health check ──────────────────────────────────────────────────
+  // This fires once when the process starts. If you see this in Railway logs,
+  // the bot is alive. If you receive this on Telegram, notifications are working.
+  console.log("\n🟢 Bot process started — sending Telegram startup ping...");
+  const log0  = loadLog();
+  const open0 = log0.trades.filter(t => t.orderPlaced && !t.outcome);
+  const startMsg = [
+    `🤖 <b>Bot Online</b> — ${CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE"}`,
+    `Scanning: ${CONFIG.symbols.join(", ")}`,
+    `Portfolio: $${CONFIG.portfolioValue} | Risk: ${CONFIG.riskPerTradePct}%/trade`,
+    `Leverage: ${CONFIG.minLeverage}x–${CONFIG.leverage}x dynamic`,
+    open0.length > 0
+      ? `Open trades: ${open0.map(t => `${t.symbol} (${t.side})`).join(", ")}`
+      : `Open trades: none`,
+    `First scan starting now...`,
+  ].join("\n");
+  await tg(startMsg);
+  console.log("🟢 Startup ping sent. Entering scan loop...\n");
+
   // Run once immediately, then repeat every 15 minutes forever.
   // This replaces the Railway cron — Railway just keeps this process alive.
   while (true) {
@@ -2143,7 +2196,7 @@ async function loop() {
     } catch (err) {
       console.error("Bot error:", err);
       // Never crash — log the error and wait for next scan
-      try { await tg(`⚠️ Bot error (will retry in 15 min):\n${err.message}`); } catch {}
+      await tg(`⚠️ Bot error (will retry in 15 min):\n${err.message}`);
     }
     console.log(`\n⏰ Next scan in 15 minutes — ${new Date(Date.now() + SCAN_INTERVAL_MS).toISOString()}\n`);
     await new Promise(r => setTimeout(r, SCAN_INTERVAL_MS));
