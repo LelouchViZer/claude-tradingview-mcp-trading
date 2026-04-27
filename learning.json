@@ -1,17 +1,62 @@
 {
-  "totalTrades": 0,
+  "totalTrades": 2,
   "wins": 0,
-  "losses": 0,
+  "losses": 2,
   "winRate": 0,
   "rsiEntryThreshold": 40,
   "vwapProximityPct": 2.5,
   "entryTF": "15m",
-  "symbolStats": {},
-  "symbolCooldowns": {},
-  "tradeLessons": [],
+  "symbolStats": {
+    "ATOMUSDT": {
+      "wins": 0,
+      "losses": 2,
+      "winRate": 0
+    }
+  },
+  "symbolCooldowns": {
+    "ATOMUSDT": {
+      "consecutiveLosses": 2,
+      "cooldownUntil": "2026-04-25T17:35:28.308Z"
+    }
+  },
+  "tradeLessons": [
+    {
+      "date": "2026-04-25",
+      "time": "11:10:41",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 100,
+      "pnlPct": "-7.45",
+      "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-04-25",
+      "time": "14:35:28",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 100,
+      "pnlPct": "-7.45",
+      "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ATOMUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
+    }
+  ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": null,
+  "lastUpdated": "2026-04-25T14:35:29.208Z",
   "notes": [],
-  "capitulationEvents": [],
-  "lastDailySummaryDate": "2026-04-24"
+  "capitulationEvents": [
+    {
+      "date": "2026-04-25",
+      "time": "05:19:05",
+      "coinsOverbought": 8,
+      "type": "overbought"
+    }
+  ],
+  "lastDailySummaryDate": "2026-04-25"
 }

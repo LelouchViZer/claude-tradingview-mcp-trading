@@ -1553,16 +1553,31 @@ async function analyseSymbol(symbol, rules, log, learning) {
     return null;
   }
 
-  // Re-entry cooldown — wait at least 4 hours after any trade closes on this symbol.
-  // Prevents the bot from immediately re-entering the same losing setup in the same scan.
-  const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-  const recentlyClosed = log.trades.find(t =>
-    t.symbol === symbol && t.outcome && t.closedAt &&
-    new Date(t.closedAt).getTime() > fourHoursAgo
-  );
+  // Re-entry cooldown — after a LOSS wait 8 hours, after a WIN wait 4 hours.
+  // This plugs the gap where trade 1 closes as LOSS and the bot immediately re-enters
+  // in the same scan (the ATOM double-trade bug: loss at 11:10:41, re-enter at 11:10:58).
+  const eightHoursAgo = Date.now() - 8 * 60 * 60 * 1000;
+  const fourHoursAgo  = Date.now() - 4 * 60 * 60 * 1000;
+  const recentlyClosed = log.trades.find(t => {
+    if (t.symbol !== symbol || !t.outcome || !t.closedAt) return false;
+    const isLoss = t.outcome === "LOSS" || t.outcome === "EARLY_EXIT_LOSS";
+    const cooldownCutoff = isLoss ? eightHoursAgo : fourHoursAgo;
+    return new Date(t.closedAt).getTime() > cooldownCutoff;
+  });
   if (recentlyClosed) {
+    const isLoss = recentlyClosed.outcome === "LOSS" || recentlyClosed.outcome === "EARLY_EXIT_LOSS";
+    const waitHours = isLoss ? 8 : 4;
     const minutesAgo = Math.round((Date.now() - new Date(recentlyClosed.closedAt).getTime()) / 60000);
-    console.log(`\n  ⏸️  ${symbol} — ${recentlyClosed.outcome} closed ${minutesAgo}min ago, waiting 4H before re-entry`);
+    console.log(`\n  ⏸️  ${symbol} — ${recentlyClosed.outcome} closed ${minutesAgo}min ago, waiting ${waitHours}H before re-entry`);
+    return null;
+  }
+
+  // Final duplicate guard — re-check open trades right before entering.
+  // Belt-and-suspenders: catches any race condition where the in-memory check above
+  // might have run before a concurrent scan pushed a trade to log.trades.
+  const stillOpen = log.trades.some(t => t.orderPlaced && !t.outcome && t.symbol === symbol);
+  if (stillOpen) {
+    console.log(`\n  ⏸️  ${symbol} — duplicate guard: open trade already exists, skipping`);
     return null;
   }
 
@@ -1787,13 +1802,16 @@ async function scanForScalps(symbol, log, learning) {
   ).length;
   if (openOnSymbol > 0) return null;
 
-  // BUG FIX: Respect 4H re-entry cooldown (same rule as main scanner)
+  // Re-entry cooldown — 8H after LOSS, 4H after WIN (matches main scanner rule)
   // Prevents scalp opening immediately after a SL/TP hit on the same coin
-  const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-  const recentlyClosed = log.trades.find(t =>
-    t.symbol === symbol && t.outcome && t.closedAt &&
-    new Date(t.closedAt).getTime() > fourHoursAgo
-  );
+  const eightHoursAgoScalp = Date.now() - 8 * 60 * 60 * 1000;
+  const fourHoursAgoScalp  = Date.now() - 4 * 60 * 60 * 1000;
+  const recentlyClosed = log.trades.find(t => {
+    if (t.symbol !== symbol || !t.outcome || !t.closedAt) return false;
+    const isLoss = t.outcome === "LOSS" || t.outcome === "EARLY_EXIT_LOSS";
+    const cutoff = isLoss ? eightHoursAgoScalp : fourHoursAgoScalp;
+    return new Date(t.closedAt).getTime() > cutoff;
+  });
   if (recentlyClosed) return null;
 
   // BUG FIX: Respect learning symbol cooldowns (consecutive-loss pause)
