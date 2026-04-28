@@ -1012,7 +1012,7 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
 
 // ─── Trade Limits ────────────────────────────────────────────────────────────
 
-function checkTradeLimits(log) {
+function checkTradeLimits(log, learning) {
   const todayCount = countTodaysTrades(log);
 
   console.log("\n── Trade Limits ─────────────────────────────────────────\n");
@@ -1028,13 +1028,18 @@ function checkTradeLimits(log) {
     `✅ Trades today: ${todayCount}/${CONFIG.maxTradesPerDay} — within limit`,
   );
 
-  // Dynamic risk sizing display: show margin range across leverage spectrum
-  const riskAmt   = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
-  const maxMargin = CONFIG.portfolioValue * 0.70;
-  const minMarginCalc = Math.min(riskAmt / (CONFIG.leverage    * CONFIG.stopLossPct / 100), maxMargin);
-  const maxMarginCalc = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), maxMargin);
+  // Show sizing based on ACTUAL current balance, not fixed starting value
+  const currentBal    = calcRunningBalance(log, learning);
+  const openMarginNow = countOpenMargin(log);
+  const riskAmt       = currentBal * (CONFIG.riskPerTradePct / 100);
+  const maxMarginCap  = currentBal * 0.70;
+  const minMarginCalc = Math.min(riskAmt / (CONFIG.leverage    * CONFIG.stopLossPct / 100), maxMarginCap);
+  const maxMarginCalc = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), maxMarginCap);
   console.log(
-    `✅ Risk per trade: ${CONFIG.riskPerTradePct}% ($${riskAmt.toFixed(2)}) | Margin $${minMarginCalc.toFixed(0)}–$${maxMarginCalc.toFixed(0)} (${CONFIG.minLeverage}x–${CONFIG.leverage}x dynamic)`,
+    `✅ Balance: $${currentBal} | Risk/trade: ${CONFIG.riskPerTradePct}% ($${riskAmt.toFixed(2)}) | Margin $${minMarginCalc.toFixed(0)}–$${maxMarginCalc.toFixed(0)} (${CONFIG.minLeverage}x–${CONFIG.leverage}x)`,
+  );
+  console.log(
+    `✅ Open margin: $${openMarginNow.toFixed(2)} / $${(currentBal * 0.90).toFixed(2)} budget (90% of balance)`,
   );
 
   return true;
@@ -1403,7 +1408,7 @@ function generateTaxSummary() {
 //
 //  Final size = flat $15 (Option A — push for $60 target, keep strict entry rules)
 
-function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning) {
+function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning, currentBalance) {
   let score = 0;
   const breakdown = {};
 
@@ -1458,14 +1463,15 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning)
 
   // ── Final confidence % and trade size ──
   const confidencePct = Math.min(100, Math.round(score));
-  // Dynamic sizing: risk a fixed % of portfolio, adjust margin based on leverage
-  // The dollar risk per trade is ALWAYS riskPerTradePct% of portfolio
-  // Higher confidence → higher leverage → smaller margin needed → same $ risk
-  const riskAmount  = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
+  // BUG FIX: use the ACTUAL running balance, not the fixed starting value.
+  // As the account grows/shrinks, position sizes scale correctly.
+  // currentBalance is passed in from analyseSymbol via calcRunningBalance(log, learning).
+  const bal         = currentBalance || CONFIG.portfolioValue;
+  const riskAmount  = bal * (CONFIG.riskPerTradePct / 100);
   const lev         = calcDynamicLeverage(confidencePct, bias);
   const rawMargin   = riskAmount / (lev * CONFIG.stopLossPct / 100);
-  // Cap at 70% of portfolio — lets risk-based sizing work correctly on small accounts
-  const maxMargin   = CONFIG.portfolioValue * 0.70;
+  // Cap at 70% of current balance
+  const maxMargin   = bal * 0.70;
   const finalSize   = parseFloat(Math.min(rawMargin, maxMargin).toFixed(2));
 
   return { finalSize, confidencePct, score: parseFloat(score.toFixed(1)), breakdown, dynamicLeverage: lev };
@@ -1598,10 +1604,21 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
     return null;
   }
 
-  // Per-symbol risk sizing
-  // Preview margin estimate (actual size set by calcConfidence after safety check passes)
-  const riskAmt      = CONFIG.portfolioValue * (CONFIG.riskPerTradePct / 100);
-  const previewMargin = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), CONFIG.portfolioValue * 0.30);
+  // ── Real-time balance & over-margin protection ───────────────────────────
+  // Use current running balance (not fixed starting value) for all sizing.
+  // Also block new trades if total open margin already exceeds 90% of balance —
+  // prevents deploying more capital than the account actually holds.
+  const currentBalance = calcRunningBalance(log, learning);
+  const openMargin     = countOpenMargin(log);
+  const marginBudget   = currentBalance * 0.90;
+  if (openMargin >= marginBudget) {
+    console.log(`\n  ⏸️  ${symbol} — margin budget used ($${openMargin.toFixed(2)} / $${marginBudget.toFixed(2)} = 90% of $${currentBalance})`);
+    return null;
+  }
+
+  // Per-symbol risk sizing (preview — actual size set by calcConfidence after safety check)
+  const riskAmt      = currentBalance * (CONFIG.riskPerTradePct / 100);
+  const previewMargin = Math.min(riskAmt / (CONFIG.minLeverage * CONFIG.stopLossPct / 100), currentBalance * 0.30);
   const tradeSize    = parseFloat(previewMargin.toFixed(2));
 
   // Fetch candles
@@ -1721,7 +1738,7 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
       logEntry.blockedReason = entryConfirm.reason;
     } else {
       // ── Confidence + Dynamic Leverage engine ─────────────────────────────
-      const conf           = calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning);
+      const conf           = calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning, currentBalance);
       const finalTradeSize = conf.finalSize;
       const dynLev         = conf.dynamicLeverage || CONFIG.leverage;
       logEntry.tradeSize   = finalTradeSize;
@@ -1733,7 +1750,7 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
         console.log(`     ${k.padEnd(12)}: ${v}`)
       );
       console.log(`     ${"─".repeat(44)}`);
-      console.log(`     Score: ${conf.score}/100 | Risk: $${(CONFIG.portfolioValue * CONFIG.riskPerTradePct / 100).toFixed(2)} (${CONFIG.riskPerTradePct}% of $${CONFIG.portfolioValue})`);
+      console.log(`     Score: ${conf.score}/100 | Risk: $${(currentBalance * CONFIG.riskPerTradePct / 100).toFixed(2)} (${CONFIG.riskPerTradePct}% of $${currentBalance} balance)`);
       const side = (bias === "bearish" || bias === "extreme_resistance") ? "sell" : "buy";
 
       if (CONFIG.paperTrading) {
@@ -1788,7 +1805,7 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
             `${dirTag} <b>${symbol}</b> 💸 LIVE\n` +
             `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${dynLev}x = $${positionUSD.toFixed(2)}\n` +
             `SL: $${order.stopLoss} | TP: $${order.takeProfit}\n` +
-            `Risk: $${(CONFIG.portfolioValue * CONFIG.riskPerTradePct / 100).toFixed(2)} | Regime: ${bias}`
+            `Risk: $${(currentBalance * CONFIG.riskPerTradePct / 100).toFixed(2)} | Balance: $${currentBalance} | Regime: ${bias}`
           );
         } catch (err) {
           console.log(`  ❌ ORDER FAILED — ${err.message}`);
@@ -2070,7 +2087,7 @@ async function run() {
     saveLearning(learning);
   }
 
-  const withinLimits = checkTradeLimits(log);
+  const withinLimits = checkTradeLimits(log, learning);
   if (!withinLimits) {
     console.log("\nBot stopping — trade limits reached for today.");
     return;
@@ -2202,7 +2219,7 @@ async function run() {
         log.trades.push(logEntry);
         saveLog(log);
         writeTradeCsv(logEntry);
-        if (!checkTradeLimits(log)) {
+        if (!checkTradeLimits(log, learning)) {
           console.log("\n⛔ Daily trade limit reached — stopping scan.");
           break;
         }
@@ -2257,13 +2274,16 @@ async function loop() {
   // restart cycle on first boot. Moving it here fixes that.
   checkOnboarding();
   console.log("\n🟢 Bot process started — sending Telegram startup ping...");
-  const log0  = loadLog();
-  const open0 = log0.trades.filter(t => t.orderPlaced && !t.outcome);
+  const log0      = loadLog();
+  const learning0 = loadLearning();
+  const open0     = log0.trades.filter(t => t.orderPlaced && !t.outcome);
+  const balance0  = calcRunningBalance(log0, learning0);
+  const openMargin0 = countOpenMargin(log0);
   const startMsg = [
     `🤖 <b>Bot Online</b> — ${CONFIG.paperTrading ? "📋 PAPER" : "💸 LIVE"}`,
+    `Balance: <b>$${balance0}</b> | Open margin: $${openMargin0.toFixed(2)}`,
     `Scanning: ${CONFIG.symbols.join(", ")}`,
-    `Portfolio: $${CONFIG.portfolioValue} | Risk: ${CONFIG.riskPerTradePct}%/trade`,
-    `Leverage: ${CONFIG.minLeverage}x–${CONFIG.leverage}x dynamic`,
+    `Risk: ${CONFIG.riskPerTradePct}%/trade ($${(balance0 * CONFIG.riskPerTradePct / 100).toFixed(2)}) | Leverage: ${CONFIG.minLeverage}x–${CONFIG.leverage}x`,
     open0.length > 0
       ? `Open trades: ${open0.map(t => `${t.symbol} (${t.side})`).join(", ")}`
       : `Open trades: none`,
