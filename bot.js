@@ -123,6 +123,10 @@ const CONFIG = {
   rrRatio: parseFloat(process.env.RR_RATIO || "2.0"),
   // Early exit: cut trade when this % of SL distance is reached AND momentum confirms
   earlyExitSlPct: parseFloat(process.env.EARLY_EXIT_SL_PCT || "0.65"),
+  // Bitget USDT-M Futures taker fee (market orders): 0.06% per side
+  // Round-trip cost = entry + exit = 2 × 0.06% = 0.12% of POSITION value
+  // e.g. $10 margin × 10x = $100 position → $0.12 in fees per trade
+  bitgetTakerFee: parseFloat(process.env.BITGET_TAKER_FEE || "0.0006"),
   bitget: {
     apiKey: process.env.BITGET_API_KEY,
     secretKey: process.env.BITGET_SECRET_KEY,
@@ -207,17 +211,30 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
       // pnlPct already used SL/TP — exitPrice must match so logs and Telegram are consistent.
       trade.exitPrice = outcome === "WIN" ? trade.takeProfit : trade.stopLoss;
       trade.closedAt = new Date().toISOString();
-      // P&L: always positive for WIN, negative for LOSS, regardless of side
+
+      // ── Gross P&L (price move only) ────────────────────────────────────────
+      let grossPct;
       if (isSell) {
-        trade.pnlPct = outcome === "WIN"
-          ? ((trade.price - trade.takeProfit) / trade.price * 100 * lev).toFixed(2)   // short win: entry > TP
-          : ((trade.price - trade.stopLoss)   / trade.price * 100 * lev).toFixed(2);  // short loss: entry < SL (negative)
+        grossPct = outcome === "WIN"
+          ? (trade.price - trade.takeProfit) / trade.price * 100 * lev   // short win
+          : (trade.price - trade.stopLoss)   / trade.price * 100 * lev;  // short loss (negative)
       } else {
-        trade.pnlPct = outcome === "WIN"
-          ? ((trade.takeProfit - trade.price) / trade.price * 100 * lev).toFixed(2)
-          : ((trade.stopLoss   - trade.price) / trade.price * 100 * lev).toFixed(2);
+        grossPct = outcome === "WIN"
+          ? (trade.takeProfit - trade.price) / trade.price * 100 * lev
+          : (trade.stopLoss   - trade.price) / trade.price * 100 * lev;
       }
-      trade.pnlUSD = (parseFloat(trade.pnlPct) / 100 * (trade.tradeSize || 0)).toFixed(2);
+
+      // ── Bitget fees: 0.06% taker × 2 sides × position value ───────────────
+      // Position value = margin × leverage; fee as % of margin = lev × rate × 2 × 100
+      const positionUSD  = (trade.tradeSize || 0) * lev;
+      const feeDragPct   = lev * CONFIG.bitgetTakerFee * 2 * 100;  // % of margin, always positive
+      const feeUSD       = parseFloat((positionUSD * CONFIG.bitgetTakerFee * 2).toFixed(4));
+      trade.feesUSD      = feeUSD;
+
+      // Net P&L after fees (fees always reduce profit / increase loss)
+      const netPct = grossPct - feeDragPct;
+      trade.pnlPct = netPct.toFixed(2);
+      trade.pnlUSD = (netPct / 100 * (trade.tradeSize || 0)).toFixed(2);
 
       // Update learning stats
       learning.totalTrades++;
@@ -237,7 +254,7 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
       learning.totalPnlUSD = parseFloat(((learning.totalPnlUSD || 0) + parseFloat(trade.pnlUSD || 0)).toFixed(2));
 
       console.log(`\n  📚 TRADE CLOSED — ${trade.symbol} ${outcome}`);
-      console.log(`     Entry: $${trade.price} | Exit: $${trade.exitPrice} | P&L: ${trade.pnlPct}%`);
+      console.log(`     Entry: $${trade.price} | Exit: $${trade.exitPrice} | Gross: ${grossPct.toFixed(2)}% | Fees: -$${feeUSD} | Net: ${trade.pnlPct}%`);
       writeExitCsv(trade, log, learning);
       recordTradeLesson(trade, log, learning);
       // Telegram: trade closed
@@ -246,7 +263,7 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
       await tg(
         `${isW ? "✅ WIN" : "❌ LOSS"} <b>${trade.symbol}</b>\n` +
         `Entry: $${trade.price} → Exit: $${trade.exitPrice} (${isW ? "TP" : "SL"} hit)\n` +
-        `P&L: <b>${isW ? "+" : ""}${trade.pnlPct}%</b> (${isW ? "+" : ""}$${trade.pnlUSD})\n` +
+        `P&L: <b>${isW ? "+" : ""}${trade.pnlPct}%</b> (${isW ? "+" : ""}$${trade.pnlUSD}) | Fees: -$${feeUSD}\n` +
         `Balance: <b>$${bal}</b>`
       );
       updated = true;
@@ -587,17 +604,24 @@ async function checkEarlyExits(log, learning, currentPrices) {
 
       if (shouldExit) {
         const lev = trade.leverage || CONFIG.leverage || 1;
-        const pnlPct = tradeSide === "buy"
+        const grossPnlPct = tradeSide === "buy"
           ? ((currentPrice - trade.price) / trade.price * 100 * lev)
           : ((trade.price - currentPrice) / trade.price * 100 * lev);
 
-        const isProfit  = pnlPct >= 0;
+        // Bitget fees: 0.06% taker × 2 sides × position value
+        const earlyPositionUSD = (trade.tradeSize || 0) * lev;
+        const earlyFeeDragPct  = lev * CONFIG.bitgetTakerFee * 2 * 100;
+        const earlyFeeUSD      = parseFloat((earlyPositionUSD * CONFIG.bitgetTakerFee * 2).toFixed(4));
+        const netPnlPct        = grossPnlPct - earlyFeeDragPct;
+
+        const isProfit  = netPnlPct >= 0;
         trade.outcome   = isProfit ? "EARLY_EXIT_PROFIT" : "EARLY_EXIT_LOSS";
         trade.exitPrice = currentPrice;
         trade.closedAt  = new Date().toISOString();
         trade.exitReason = exitReason;
-        trade.pnlPct    = pnlPct.toFixed(2);
-        trade.pnlUSD    = (pnlPct / 100 * (trade.tradeSize || 0)).toFixed(2);
+        trade.feesUSD   = earlyFeeUSD;
+        trade.pnlPct    = netPnlPct.toFixed(2);
+        trade.pnlUSD    = (netPnlPct / 100 * (trade.tradeSize || 0)).toFixed(2);
 
         // Update learning
         learning.totalTrades++;
@@ -616,7 +640,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
         const emoji = isProfit ? "💰" : "✂️";
         console.log(`\n  ${emoji} EARLY EXIT — ${trade.symbol} (${trade.outcome})`);
         console.log(`     Reason:  ${exitReason}`);
-        console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | P&L: ${trade.pnlPct}%`);
+        console.log(`     Entry:   $${trade.price} | Exit: $${currentPrice} | Gross: ${grossPnlPct.toFixed(2)}% | Fees: -$${earlyFeeUSD} | Net: ${trade.pnlPct}%`);
         console.log(`     Saved: ~${((1 - slProgress) * CONFIG.stopLossPct).toFixed(2)}% vs waiting for full SL`);
         writeExitCsv(trade, log, learning);
         recordTradeLesson(trade, log, learning);
@@ -627,7 +651,7 @@ async function checkEarlyExits(log, learning, currentPrices) {
           `${earlyIcon} EARLY EXIT <b>${trade.symbol}</b>\n` +
           `${trade.exitReason || trade.outcome}\n` +
           `Entry: $${trade.price} → Exit: $${currentPrice}\n` +
-          `P&L: <b>${isProfit ? "+" : ""}${trade.pnlPct}%</b> ($${trade.pnlUSD})\n` +
+          `P&L: <b>${isProfit ? "+" : ""}${trade.pnlPct}%</b> ($${trade.pnlUSD}) | Fees: -$${earlyFeeUSD}\n` +
           `Balance: <b>$${earlyBal}</b>`
         );
 
@@ -1777,12 +1801,13 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
         const tpPct       = (CONFIG.stopLossPct * rrMultiplier).toFixed(1);
         const regimeTag   = (bias === "extreme_bounce" || bias === "extreme_resistance")
           ? ` 🔥 streak ${marketRegime.streak} → ${rrMultiplier}:1 RR` : "";
+        const entryFeeUSD = parseFloat((positionUSD * CONFIG.bitgetTakerFee * 2).toFixed(4));  // round-trip fee
         console.log(`\n  📋 PAPER TRADE — ${side.toUpperCase()} ${symbol}${regimeTag}`);
         console.log(`     Margin:      $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)} position`);
         console.log(`     Entry:       $${price.toFixed(2)}`);
         console.log(`     Stop Loss:   $${stopLoss.toFixed(2)}  (-${CONFIG.stopLossPct}%) → max loss  $${riskUSD.toFixed(2)}`);
         console.log(`     Take Profit: $${takeProfit.toFixed(2)}  (+${tpPct}%) → reward $${rewardUSD.toFixed(2)}`);
-        console.log(`     R:R Ratio:   1:${rrMultiplier}`);
+        console.log(`     R:R Ratio:   1:${rrMultiplier} | Est. fees (round-trip): $${entryFeeUSD}`);
         logEntry.orderPlaced = true;
         logEntry.orderId     = `PAPER-${Date.now()}`;
         logEntry.stopLoss    = stopLoss;
@@ -1796,7 +1821,7 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
           `${dirTag} <b>${symbol}</b> 📋 PAPER\n` +
           `Entry: <b>$${price.toFixed(2)}</b> | Margin: $${finalTradeSize} × ${lev}x = $${positionUSD.toFixed(2)}\n` +
           `SL: $${stopLoss} | TP: $${takeProfit}\n` +
-          `RR: 1:${rrMultiplier} | Regime: ${bias}`
+          `RR: 1:${rrMultiplier} | Regime: ${bias} | Est. fees: -$${entryFeeUSD}`
         );
       } else {
         const positionUSD = finalTradeSize * dynLev;
@@ -2000,13 +2025,14 @@ async function scanForScalps(symbol, log, learning) {
       logEntry.orderPlaced = true;
       logEntry.orderId     = `SCALP-${Date.now()}`;
       logEntry.quantity    = (scalpSize * lev) / price;
-      console.log(`\n  📋 PAPER SCALP LOGGED ✅`);
+      const scalpFeeUSD    = parseFloat((posUSD * CONFIG.bitgetTakerFee * 2).toFixed(4));
+      console.log(`\n  📋 PAPER SCALP LOGGED ✅ | Est. fees (round-trip): $${scalpFeeUSD}`);
       const scalpDir = scalpBias === "buy" ? "⚡📈 SCALP LONG" : "⚡📉 SCALP SHORT";
       await tg(
         `${scalpDir} <b>${symbol}</b> 📋 PAPER\n` +
         `${reason}\n` +
         `Entry: <b>$${price.toFixed(4)}</b> | $${scalpSize} × ${lev}x = $${posUSD}\n` +
-        `SL: $${stopLoss} | TP: $${takeProfit} | RR: 2:1`
+        `SL: $${stopLoss} | TP: $${takeProfit} | RR: 2:1 | Est. fees: -$${scalpFeeUSD}`
       );
     } else {
       try {
