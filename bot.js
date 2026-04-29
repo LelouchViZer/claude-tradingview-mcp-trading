@@ -490,8 +490,9 @@ async function checkEarlyExits(log, learning, currentPrices) {
           ? lockedSL > trade.stopLoss
           : lockedSL < trade.stopLoss;
         if (improved) {
-          console.log(`  🔒 Trailing SL updated → locked in +1% (75% to TP) | New SL: $${lockedSL.toFixed(2)}`);
-          trade.stopLoss = parseFloat(lockedSL.toFixed(2));
+          const trailDp = priceDecimals(trade.price);
+          console.log(`  🔒 Trailing SL updated → locked in +1% (75% to TP) | New SL: $${lockedSL.toFixed(trailDp)}`);
+          trade.stopLoss = parseFloat(lockedSL.toFixed(trailDp));
           updated = true; // BUG FIX: persist the new SL so it survives the next loadLog()
         }
       } else if (tpProgress >= 0.50 && trade.stopLoss) {
@@ -1055,6 +1056,19 @@ function signBitGet(timestamp, method, path, body = "") {
     .digest("base64");
 }
 
+// Dynamic decimal precision based on price magnitude.
+// Prevents SL/TP from rounding to the same value as entry for cheap coins (e.g. DOGE $0.10).
+// Rule: always keep at least 4 significant figures in the SL/TP offset.
+function priceDecimals(price) {
+  if (price >= 10000) return 1;   // BTC, ETH high range   → $78821 → 1dp fine
+  if (price >= 1000)  return 2;   // BTC mid range          → $4578.56 → 2dp
+  if (price >= 100)   return 3;   // SOL, BNB               → $83.82 → 3dp
+  if (price >= 10)    return 4;   // LINK, AVAX             → $9.149 → 4dp
+  if (price >= 1)     return 5;   // ATOM                   → $1.99 → 5dp
+  if (price >= 0.1)   return 6;   // DOGE ~$0.10            → 6dp
+  return 8;                        // very cheap coins       → 8dp
+}
+
 // Calculate SL and TP prices based on strategy rules
 // For extreme bounce/resistance: deeper oversold streak = bigger expected move = wider TP
 //   streak 3–4 → 2:1 RR (standard)
@@ -1071,13 +1085,14 @@ function calcSlTp(entryPrice, side, regime = "standard", oversoldStreak = 0) {
   }
 
   const tpPct = slPct * rrMultiplier;
+  const dp = priceDecimals(entryPrice);  // BUG FIX: dynamic precision — prevents SL=TP=entry for cheap coins
   let stopLoss, takeProfit;
   if (side === "buy") {
-    stopLoss   = parseFloat((entryPrice * (1 - slPct)).toFixed(2));
-    takeProfit = parseFloat((entryPrice * (1 + tpPct)).toFixed(2));
+    stopLoss   = parseFloat((entryPrice * (1 - slPct)).toFixed(dp));
+    takeProfit = parseFloat((entryPrice * (1 + tpPct)).toFixed(dp));
   } else {
-    stopLoss   = parseFloat((entryPrice * (1 + slPct)).toFixed(2));
-    takeProfit = parseFloat((entryPrice * (1 - tpPct)).toFixed(2));
+    stopLoss   = parseFloat((entryPrice * (1 + slPct)).toFixed(dp));
+    takeProfit = parseFloat((entryPrice * (1 - tpPct)).toFixed(dp));
   }
   return { stopLoss, takeProfit, rrMultiplier };
 }
@@ -1941,12 +1956,13 @@ async function scanForScalps(symbol, log, learning) {
     const lev        = CONFIG.leverage;
     const posUSD     = scalpSize * lev;
 
+    const scalpDp    = priceDecimals(price);  // BUG FIX: dynamic precision for cheap scalp coins
     const stopLoss   = scalpBias === "buy"
-      ? parseFloat((price * (1 - scalpSlPct / 100)).toFixed(4))
-      : parseFloat((price * (1 + scalpSlPct / 100)).toFixed(4));
+      ? parseFloat((price * (1 - scalpSlPct / 100)).toFixed(scalpDp))
+      : parseFloat((price * (1 + scalpSlPct / 100)).toFixed(scalpDp));
     const takeProfit = scalpBias === "buy"
-      ? parseFloat((price * (1 + scalpTpPct / 100)).toFixed(4))
-      : parseFloat((price * (1 - scalpTpPct / 100)).toFixed(4));
+      ? parseFloat((price * (1 + scalpTpPct / 100)).toFixed(scalpDp))
+      : parseFloat((price * (1 - scalpTpPct / 100)).toFixed(scalpDp));
 
     const riskUSD   = posUSD * scalpSlPct / 100;
     const rewardUSD = posUSD * scalpTpPct / 100;
