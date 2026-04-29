@@ -1,63 +1,125 @@
 {
-  "totalTrades": 2,
-  "wins": 0,
-  "losses": 2,
-  "winRate": 0,
-  "totalPnlUSD": -2.98,
+  "totalTrades": 11,
+  "wins": 4,
+  "losses": 7,
+  "winRate": 36,
+  "totalPnlUSD": 0.16,
   "rsiEntryThreshold": 40,
   "vwapProximityPct": 2.5,
   "entryTF": "15m",
   "symbolStats": {
-    "ATOMUSDT": {
-      "wins": 0,
-      "losses": 2,
-      "winRate": 0
-    }
+    "ATOMUSDT": { "wins": 1, "losses": 2, "winRate": 33 },
+    "BTCUSDT":  { "wins": 1, "losses": 0, "winRate": 100 },
+    "BNBUSDT":  { "wins": 1, "losses": 0, "winRate": 100 },
+    "SOLUSDT":  { "wins": 0, "losses": 1, "winRate": 0 },
+    "AVAXUSDT": { "wins": 0, "losses": 1, "winRate": 0 },
+    "LINKUSDT": { "wins": 1, "losses": 1, "winRate": 50 },
+    "XAUTUSDT": { "wins": 0, "losses": 1, "winRate": 0 },
+    "DOGEUSDT": { "wins": 0, "losses": 1, "winRate": 0 }
   },
-  "symbolCooldowns": {
-    "ATOMUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-04-25T17:35:28.308Z"
-    }
-  },
+  "symbolCooldowns": {},
   "tradeLessons": [
     {
-      "date": "2026-04-25",
-      "time": "11:10:41",
-      "symbol": "ATOMUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "exhaustion",
-      "entryRSI": 100,
-      "pnlPct": "-7.45",
+      "date": "2026-04-25", "time": "11:10:41", "symbol": "ATOMUSDT",
+      "outcome": "LOSS", "regime": "standard", "volumeAtEntry": "exhaustion",
+      "entryRSI": 100, "pnlPct": "-7.45",
       "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
     },
     {
-      "date": "2026-04-25",
-      "time": "14:35:28",
-      "symbol": "ATOMUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "exhaustion",
-      "entryRSI": 100,
-      "pnlPct": "-7.45",
+      "date": "2026-04-25", "time": "14:35:28", "symbol": "ATOMUSDT",
+      "outcome": "LOSS", "regime": "standard", "volumeAtEntry": "exhaustion",
+      "entryRSI": 100, "pnlPct": "-7.45",
       "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ATOMUSDT on 3hr cooldown (2 consecutive losses)",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-04-28", "time": "06:54:00", "symbol": "BTCUSDT",
+      "outcome": "WIN", "regime": "standard",
+      "pnlPct": "30.00",
+      "lesson": "BTCUSDT: ✅ Full TP hit — standard short worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on BTCUSDT",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-28", "time": "06:54:00", "symbol": "BNBUSDT",
+      "outcome": "WIN", "regime": "scalp",
+      "pnlPct": "5.00",
+      "lesson": "BNBUSDT: ✅ Scalp TP hit",
+      "adaptation": "Scalp momentum worked",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-29", "time": "11:28:00", "symbol": "ATOMUSDT",
+      "outcome": "EARLY_EXIT_PROFIT", "regime": "standard",
+      "pnlPct": "2.49",
+      "lesson": "ATOMUSDT: Early exit profitable — setup invalidated before full TP",
+      "adaptation": "Early exit logic working correctly",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-29", "time": "13:17:00", "symbol": "SOLUSDT",
+      "outcome": "LOSS", "regime": "standard",
+      "pnlPct": "-3.00",
+      "lesson": "SOLUSDT: SL hit — momentum continued against position",
+      "adaptation": "Review entry timing on SOL",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-04-29", "time": "13:17:00", "symbol": "AVAXUSDT",
+      "outcome": "LOSS", "regime": "standard",
+      "pnlPct": "-2.99",
+      "lesson": "AVAXUSDT: SL hit — momentum continued against position",
+      "adaptation": "Review entry timing on AVAX",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-04-29", "time": "16:11:00", "symbol": "LINKUSDT",
+      "outcome": "LOSS", "regime": "scalp",
+      "pnlPct": "0.00",
+      "lesson": "LINKUSDT: Scalp hit breakeven SL — trailing stop protected from loss",
+      "adaptation": "Trailing stop to breakeven working correctly",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-29", "time": "08:06:00", "symbol": "XAUTUSDT",
+      "outcome": "LOSS", "regime": "standard",
+      "pnlPct": "0.00",
+      "lesson": "XAUTUSDT: Hit breakeven SL — trailing stop protected from loss",
+      "adaptation": "Trailing stop to breakeven working correctly",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-29", "time": "08:06:00", "symbol": "LINKUSDT",
+      "outcome": "EARLY_EXIT_PROFIT", "regime": "extreme_resistance",
+      "pnlPct": "0.43",
+      "lesson": "LINKUSDT: Early exit — setup invalidated (RSI=100, price above VWAP+EMA20)",
+      "adaptation": "Early exit logic triggered correctly on invalidation",
+      "severity": "info"
+    },
+    {
+      "date": "2026-04-29", "time": "11:13:00", "symbol": "DOGEUSDT",
+      "outcome": "LOSS", "regime": "extreme_resistance",
+      "pnlPct": "-3.00",
+      "lesson": "DOGEUSDT: SL hit — NOTE: trade had SL/TP precision bug (toFixed(2)), now fixed",
+      "adaptation": "Price precision bug fixed — dynamic decimal places now applied",
       "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-04-25T14:35:29.208Z",
+  "lastUpdated": "2026-04-29T12:00:00.000Z",
   "notes": [],
   "capitulationEvents": [
     {
-      "date": "2026-04-25",
-      "time": "05:19:05",
-      "coinsOverbought": 8,
-      "type": "overbought"
+      "date": "2026-04-25", "time": "05:19:05",
+      "coinsOverbought": 8, "type": "overbought"
+    },
+    {
+      "date": "2026-04-28", "time": "06:54:00",
+      "coinsOverbought": 13, "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-04-25"
+  "lastDailySummaryDate": "2026-04-29"
 }
