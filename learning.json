@@ -3,7 +3,7 @@
   "wins": 4,
   "losses": 7,
   "winRate": 36,
-  "totalPnlUSD": 0.16,
+  "totalPnlUSD": -0.69,
   "rsiEntryThreshold": 40,
   "vwapProximityPct": 2.5,
   "entryTF": "15m",
