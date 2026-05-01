@@ -211,12 +211,13 @@ async function pushStateToGithub(reason = "trade closed") {
         { headers: { Authorization: `Bearer ${token}`, "User-Agent": "khun-bot" } }
       );
       const meta = await getMeta.json();
-      if (!meta.sha) { console.log(`  ⚠️  GitHub push: could not get SHA for ${f.path}`); continue; }
-
+      // BUG FIX: if file doesn't exist yet (404), meta.sha is undefined.
+      // GitHub API: PUT without sha = create new file. PUT with sha = update existing.
+      // Old code skipped the push entirely on first run — files were never created.
       const body = JSON.stringify({
         message: `bot: auto-save ${f.path} — ${reason}`,
         content: Buffer.from(f.content).toString("base64"),
-        sha: meta.sha,
+        ...(meta.sha ? { sha: meta.sha } : {}),  // omit sha to create, include to update
       });
 
       const res = await fetch(
@@ -334,7 +335,11 @@ function adaptThresholds(log, learning) {
   const closed = log.trades.filter(t => t.outcome).slice(-10);
   if (closed.length < 5) return; // need at least 5 trades to adapt
 
-  const recentWinRate = closed.filter(t => t.outcome === "WIN").length / closed.length * 100;
+  // BUG FIX: count EARLY_EXIT_PROFIT as wins — they are profitable closes.
+  // Only counting "WIN" caused adaptThresholds to see a falsely low win rate
+  // and over-tighten RSI/VWAP thresholds when the bot was actually performing well.
+  const isWinOutcome = o => o === "WIN" || o === "EARLY_EXIT_PROFIT";
+  const recentWinRate = closed.filter(t => isWinOutcome(t.outcome)).length / closed.length * 100;
 
   const note = [];
 
@@ -539,14 +544,17 @@ async function checkEarlyExits(log, learning, currentPrices) {
 
       const totalRange = Math.abs(trade.price - trade.stopLoss);
       const toSL       = Math.abs(currentPrice - trade.stopLoss);
-      const slProgress = totalRange > 0 ? (totalRange - toSL) / totalRange : 0;
+      // BUG FIX: clamp to [0,1] — without this, when price overshoots SL/TP the
+      // value goes negative and >= threshold conditions silently never fire.
+      const slProgress = totalRange > 0 ? Math.min(1, Math.max(0, 1 - toSL / totalRange)) : 0;
 
       // ── Trailing stop: protect profit once trade moves in our favour ──────
       // At 50% to TP → move SL to breakeven (entry price)
       // At 75% to TP → lock in +1% on position  (never lose a big winner)
       const tpRange     = Math.abs(trade.takeProfit - trade.price);
       const toTP        = Math.abs(trade.takeProfit - currentPrice);
-      const tpProgress  = tpRange > 0 ? (tpRange - toTP) / tpRange : 0;
+      // BUG FIX: same clamp — prevents trailing stop from failing when price is at/past TP
+      const tpProgress  = tpRange > 0 ? Math.min(1, Math.max(0, 1 - toTP / tpRange)) : 0;
       const lev         = trade.leverage || CONFIG.leverage || 1;
       const currentPnlPct = tradeSide === "buy"
         ? (currentPrice - trade.price) / trade.price * 100 * lev
@@ -1589,7 +1597,10 @@ function calcConfidence(symbol, bias, price, vwap, rsi3, entryConfirm, learning,
   const bal         = currentBalance || CONFIG.portfolioValue;
   const riskAmount  = bal * (CONFIG.riskPerTradePct / 100);
   const lev         = calcDynamicLeverage(confidencePct, bias);
-  const rawMargin   = riskAmount / (lev * CONFIG.stopLossPct / 100);
+  // BUG FIX: use same 1% floor as calcSlTp — without this, STOP_LOSS_PCT=0.3 makes
+  // rawMargin ~3.3× too large, silently over-sizing every standard trade.
+  const effectiveSlPct = Math.max(CONFIG.stopLossPct, 1.0) / 100;
+  const rawMargin   = riskAmount / (lev * effectiveSlPct);
   // Cap at 70% of current balance
   const maxMargin   = bal * 0.70;
   const finalSize   = parseFloat(Math.min(rawMargin, maxMargin).toFixed(2));
@@ -2059,7 +2070,9 @@ async function scanForScalps(symbol, log, learning) {
     const scalpSize  = 10;
     const scalpSlPct = 0.30;
     const scalpTpPct = 0.60;
-    const lev        = CONFIG.leverage;
+    // BUG FIX: cap scalp leverage at 10x — CONFIG.leverage can be 25x which would
+    // make fee drag (lev × 0.12%) = 3% exceed the entire 0.3% SL, guaranteeing losses.
+    const lev        = Math.min(CONFIG.leverage, 10);
     const posUSD     = scalpSize * lev;
 
     const scalpDp    = priceDecimals(price);  // BUG FIX: dynamic precision for cheap scalp coins
@@ -2269,9 +2282,11 @@ async function run() {
     const today = new Date().toISOString().slice(0, 10);
     if (learning.lastDailySummaryDate !== today) {
       const allTrades   = log.trades || [];
-      const todayTrades = allTrades.filter(t => t.timestamp?.startsWith(today) && t.outcome);
-      const todayWins   = todayTrades.filter(t => t.outcome === "WIN").length;
-      const todayLosses = todayTrades.filter(t => t.outcome === "LOSS").length;
+      // BUG FIX: use closedAt (trade close time) not timestamp (trade open time).
+      // A trade opened yesterday and closed today must appear in today's P&L, not yesterday's.
+      const todayTrades = allTrades.filter(t => (t.closedAt || t.timestamp)?.startsWith(today) && t.outcome);
+      const todayWins   = todayTrades.filter(t => t.outcome === "WIN" || t.outcome === "EARLY_EXIT_PROFIT").length;
+      const todayLosses = todayTrades.filter(t => t.outcome === "LOSS" || t.outcome === "EARLY_EXIT_LOSS").length;
       const todayPnl    = todayTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
 
       // All-time stats — use learning.totalPnlUSD (survives Railway deploys);
@@ -2284,9 +2299,9 @@ async function run() {
 
       // Yesterday stats (for the summary to show)
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const yTrades   = allTrades.filter(t => t.timestamp?.startsWith(yesterday) && t.outcome);
-      const yWins     = yTrades.filter(t => t.outcome === "WIN").length;
-      const yLosses   = yTrades.filter(t => t.outcome === "LOSS").length;
+      const yTrades   = allTrades.filter(t => (t.closedAt || t.timestamp)?.startsWith(yesterday) && t.outcome);
+      const yWins     = yTrades.filter(t => t.outcome === "WIN" || t.outcome === "EARLY_EXIT_PROFIT").length;
+      const yLosses   = yTrades.filter(t => t.outcome === "LOSS" || t.outcome === "EARLY_EXIT_LOSS").length;
       const yPnl      = yTrades.reduce((s, t) => s + parseFloat(t.pnlUSD || 0), 0);
 
       // Win-rate emoji
