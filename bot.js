@@ -555,11 +555,12 @@ async function checkEarlyExits(log, learning, currentPrices) {
           && currentPrice < vwap && currentPrice < ema20 && rsi3 < rsiExitThresholdLong;
         const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 < rsiExitThresholdLong;
 
-        if (hardInvalidation || approachingSL) {
+        // EARLY EXIT GUARD: don't cut a profitable long — trailing stop handles it
+        const inMeaningfulProfitLong = currentPnlPct >= 5.0;
+
+        if (!inMeaningfulProfitLong && (hardInvalidation || approachingSL)) {
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
           // BUG FIX: persist the warning count so 2-scan confirmation actually works.
-          // Without this, loadLog() on the next scan always reads warnings=0 and the
-          // counter never reaches 2 — early exit via the confirmation path never fired.
           updated = true;
           if (trade._earlyExitWarnings >= 2) {
             shouldExit = true;
@@ -571,7 +572,8 @@ async function checkEarlyExits(log, learning, currentPrices) {
           }
         } else {
           if (trade._earlyExitWarnings > 0) {
-            console.log(`  ✅ ${trade.symbol} LONG — warning cleared, setup intact`);
+            const reason = inMeaningfulProfitLong ? `in profit (${currentPnlPct.toFixed(1)}%) — trailing stop managing` : `setup intact`;
+            console.log(`  ✅ ${trade.symbol} LONG — warning cleared, ${reason}`);
             trade._earlyExitWarnings = 0;
             updated = true; // persist the clear too
           }
@@ -581,7 +583,12 @@ async function checkEarlyExits(log, learning, currentPrices) {
         const hardInvalidation = currentPrice > vwap && currentPrice > ema20 && rsi3 > rsiExitThresholdShort;
         const approachingSL = slProgress >= CONFIG.earlyExitSlPct && rsi3 > rsiExitThresholdShort;
 
-        if (hardInvalidation || approachingSL) {
+        // EARLY EXIT GUARD: if the trade is already in meaningful profit (≥ 5% of margin),
+        // the trailing stop handles it — don't let early exit kill a winner prematurely.
+        // Early exit is for damage control, not for cutting profitable trades.
+        const inMeaningfulProfit = currentPnlPct >= 5.0;
+
+        if (!inMeaningfulProfit && (hardInvalidation || approachingSL)) {
           trade._earlyExitWarnings = (trade._earlyExitWarnings || 0) + 1;
           // BUG FIX: same as above — persist warning count so 2-scan confirmation works
           updated = true;
@@ -595,7 +602,8 @@ async function checkEarlyExits(log, learning, currentPrices) {
           }
         } else {
           if (trade._earlyExitWarnings > 0) {
-            console.log(`  ✅ ${trade.symbol} SHORT — warning cleared, setup intact`);
+            const reason = inMeaningfulProfit ? `in profit (${currentPnlPct.toFixed(1)}%) — trailing stop managing` : `setup intact`;
+            console.log(`  ✅ ${trade.symbol} SHORT — warning cleared, ${reason}`);
             trade._earlyExitWarnings = 0;
             updated = true; // persist the clear too
           }
@@ -913,9 +921,17 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
   const bullishTrend  = ema20AboveEma50;   // uptrend
   const bearishTrend  = !ema20AboveEma50;  // downtrend
 
+  // ── Strong trend filter ───────────────────────────────────────────────────
+  // Mean-reversion shorts (overbought fade) only work in weak-to-moderate uptrends.
+  // When EMA separation > 3%: trend has explosive momentum — overbought just gets
+  // more overbought. Shorting here = fighting a freight train. Block these entries.
+  // Same logic applies inversely for oversold longs in strong downtrends.
+  const isStrongTrend = emaSeparationPct > 3.0;
+
   // Overbought-in-uptrend SHORT and oversold-in-downtrend LONG (counter-trend mean reversion)
-  const overboughtInUptrend   = bullishTrend && !isRanging && rsi3 > 65;
-  const oversoldInDowntrend   = bearishTrend && !isRanging && rsi3 < 35;
+  // Blocked in strong trends — only valid in weak/moderate trends where mean reversion works
+  const overboughtInUptrend   = bullishTrend && !isRanging && !isStrongTrend && rsi3 > 65;
+  const oversoldInDowntrend   = bearishTrend && !isRanging && !isStrongTrend && rsi3 < 35;
 
   // Standard trend entries only fire in non-ranging markets
   const bullishBias = bullishTrend && !isRanging && !overboughtInUptrend;
@@ -927,8 +943,14 @@ function runSafetyCheck(price, ema8, ema20, ema50, vwap, rsi3, rsi14, rules, mar
   const volTrend = marketRegime?.volumeTrend || "normal";
   const volumeSurging = volTrend === "surging";
 
+  // Log when strong trend filter blocks an overbought short entry
+  if (bullishTrend && !isRanging && isStrongTrend && rsi3 > 65) {
+    console.log(`  Bias: STRONG TREND BLOCK 🚧 — RSI(3) ${rsi3.toFixed(1)} overbought but EMA spread ${emaSeparationPct.toFixed(1)}% > 3% — trend too powerful to fade\n`);
+    results.push({ label: "Strong trend filter", required: "EMA spread ≤ 3%", actual: `${emaSeparationPct.toFixed(1)}%`, pass: false });
+  }
+
   if (overboughtInUptrend) {
-    console.log(`  Bias: OVERBOUGHT SHORT 📉 — RSI(3) ${rsi3.toFixed(1)} > 65 in uptrend | Vol: ${volTrend}\n`);
+    console.log(`  Bias: OVERBOUGHT SHORT 📉 — RSI(3) ${rsi3.toFixed(1)} > 65 in uptrend | EMA spread: ${emaSeparationPct.toFixed(1)}% | Vol: ${volTrend}\n`);
     check("RSI(3) overbought (> 65) — overextended",
       `> 65`, rsi3.toFixed(2), rsi3 > 65);
     check("RSI(14) below 70 — not a parabolic breakout",
@@ -1099,7 +1121,10 @@ function priceDecimals(price) {
 //   streak 5–6 → 3:1 RR (strong exhaustion)
 //   streak 7+  → 4:1 RR (extreme capitulation — expect large snap-back)
 function calcSlTp(entryPrice, side, regime = "standard", oversoldStreak = 0) {
-  const slPct = CONFIG.stopLossPct / 100;
+  // SAFEGUARD: minimum 1% SL for standard strategy trades regardless of env var.
+  // STOP_LOSS_PCT=0.3 is valid for scalps (which use their own hardcoded value),
+  // but 0.3% on a 4H candle gets noise-stopped instantly. Floor at 1.0%.
+  const slPct = Math.max(CONFIG.stopLossPct, 1.0) / 100;
   let rrMultiplier = CONFIG.rrRatio;
 
   if (regime === "extreme_bounce" || regime === "extreme_resistance") {
