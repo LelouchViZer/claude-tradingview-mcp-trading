@@ -183,6 +183,58 @@ function saveLearning(learning) {
   writeFileSync(LEARN_FILE, JSON.stringify(learning, null, 2));
 }
 
+// ─── GitHub Auto-Commit ──────────────────────────────────────────────────────
+// Pushes learning.json + safety-check-log.json to GitHub after every trade close.
+// This ensures Railway redeploys never lose P&L history.
+// Requires GITHUB_TOKEN + GITHUB_REPO env vars (e.g. "LelouchViZer/claude-tradingview-mcp-trading").
+let _lastGithubCommit = 0; // debounce: max 1 push per 60s
+
+async function pushStateToGithub(reason = "trade closed") {
+  const token = process.env.GITHUB_TOKEN;
+  const repo  = process.env.GITHUB_REPO;
+  if (!token || !repo) return; // silently skip if not configured
+
+  const now = Date.now();
+  if (now - _lastGithubCommit < 60_000) return; // debounce
+  _lastGithubCommit = now;
+
+  try {
+    const files = [
+      { path: LEARN_FILE,  content: readFileSync(LEARN_FILE,  "utf8") },
+      { path: LOG_FILE,    content: readFileSync(LOG_FILE,    "utf8") },
+    ];
+
+    for (const f of files) {
+      // Get current SHA (required by GitHub API to update a file)
+      const getMeta = await fetch(
+        `https://api.github.com/repos/${repo}/contents/${f.path}`,
+        { headers: { Authorization: `Bearer ${token}`, "User-Agent": "khun-bot" } }
+      );
+      const meta = await getMeta.json();
+      if (!meta.sha) { console.log(`  ⚠️  GitHub push: could not get SHA for ${f.path}`); continue; }
+
+      const body = JSON.stringify({
+        message: `bot: auto-save ${f.path} — ${reason}`,
+        content: Buffer.from(f.content).toString("base64"),
+        sha: meta.sha,
+      });
+
+      const res = await fetch(
+        `https://api.github.com/repos/${repo}/contents/${f.path}`,
+        { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "User-Agent": "khun-bot" }, body }
+      );
+      const json = await res.json();
+      if (json.commit) {
+        console.log(`  ✅ GitHub: ${f.path} saved (${reason})`);
+      } else {
+        console.log(`  ⚠️  GitHub push failed for ${f.path}: ${json.message || JSON.stringify(json)}`);
+      }
+    }
+  } catch (e) {
+    console.log(`  ⚠️  GitHub push error: ${e.message}`);
+  }
+}
+
 // Check all open paper trades — did they hit SL or TP since last scan?
 async function updateTradeOutcomes(log, learning, currentPrices) {
   let updated = false;
@@ -266,6 +318,8 @@ async function updateTradeOutcomes(log, learning, currentPrices) {
         `P&L: <b>${isW ? "+" : ""}${trade.pnlPct}%</b> (${isW ? "+" : ""}$${trade.pnlUSD}) | Fees: -$${feeUSD}\n` +
         `Balance: <b>$${bal}</b>`
       );
+      // Auto-save to GitHub so Railway redeploys never lose P&L history
+      await pushStateToGithub(`${trade.symbol} ${outcome} pnl=${trade.pnlUSD}`);
       updated = true;
     }
   }
@@ -662,6 +716,8 @@ async function checkEarlyExits(log, learning, currentPrices) {
           `P&L: <b>${isProfit ? "+" : ""}${trade.pnlPct}%</b> ($${trade.pnlUSD}) | Fees: -$${earlyFeeUSD}\n` +
           `Balance: <b>$${earlyBal}</b>`
         );
+        // Auto-save to GitHub so Railway redeploys never lose P&L history
+        await pushStateToGithub(`${trade.symbol} early_exit pnl=${trade.pnlUSD}`);
 
         // For live mode: place a market close order on BitGet
         if (!CONFIG.paperTrading) {
