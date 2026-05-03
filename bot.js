@@ -1671,8 +1671,21 @@ async function confirmEntryOnLowerTF(symbol, bias, learning) {
 
     console.log(`  ${entryTF} | Price $${price5m.toFixed(2)} | RSI ${rsi3_5m.toFixed(1)} | VWAP dist ${distFromVwap5m.toFixed(2)}% | ${passCount}/4 checks`);
 
-    // Always confirmed — lower TF is advisory context only, NOT a gate.
-    // 4H conditions are the real gate. Lower TF data feeds into confidence score.
+    // GATE: require at least 2/4 lower-TF checks before entering.
+    // Lesson learned: both ATOM losses (Apr 25) had only 1/4 passCount — weak
+    // confirmation = coinflip. 2/4 minimum ensures at least 2 independent signals agree.
+    if (passCount < 2) {
+      console.log(`  ⛔ ${entryTF} gate BLOCKED — only ${passCount}/4 checks passed (need ≥2)`);
+      return {
+        confirmed: false,
+        passCount,
+        checks,
+        entryTF,
+        rsi: rsi3_5m,
+        reason: `${entryTF} confirmation too weak — ${passCount}/4 checks (need ≥2 to enter)`
+      };
+    }
+
     return {
       confirmed: true,
       passCount,
@@ -1705,6 +1718,23 @@ async function analyseSymbol(symbol, rules, log, learning, marketContext = {}) {
   if (alreadyOpenOnSymbol) {
     console.log(`\n  ⏸️  Already have an open trade on ${symbol} — skipping`);
     return null;
+  }
+
+  // ── Correlated altcoin group limit ───────────────────────────────────────
+  // SOL/AVAX/ATOM/LINK/DOGE/NEAR/TRX all move together in broad market moves.
+  // Lesson learned: SOL+AVAX both lost at 13:17 on Apr 29 — same market move,
+  // same direction = double exposure. Max 1 open trade across the group at a time.
+  const CORRELATED_ALT_GROUP = ['SOLUSDT','AVAXUSDT','ATOMUSDT','LINKUSDT','DOGEUSDT','NEARUSDT','TRXUSDT'];
+  if (CORRELATED_ALT_GROUP.includes(symbol)) {
+    const openInGroup = log.trades.filter(t =>
+      t.orderPlaced && !t.outcome && CORRELATED_ALT_GROUP.includes(t.symbol)
+    );
+    if (openInGroup.length > 0) {
+      const openSymbols = openInGroup.map(t => t.symbol).join(', ');
+      console.log(`\n  ⏸️  ${symbol} — correlated alt group occupied: [${openSymbols}] already open`);
+      console.log(`     Max 1 correlated alt at a time — avoids double-exposure to same market move`);
+      return null;
+    }
   }
 
   // Re-entry cooldown — after a LOSS wait 8 hours, after a WIN wait 4 hours.
