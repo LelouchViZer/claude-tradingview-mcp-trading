@@ -246,7 +246,7 @@ async function pushStateToGithub(reason = "trade closed") {
       );
       const meta = await getMeta.json();
       const body = JSON.stringify({
-        message: `bot: auto-save ${f.path} — ${reason}`,
+        message: `bot: auto-save ${f.path} — ${reason} [skip ci]`,
         content: Buffer.from(f.content).toString("base64"),
         branch: STATE_BRANCH,
         ...(meta.sha ? { sha: meta.sha } : {}),
