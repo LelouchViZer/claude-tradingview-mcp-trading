@@ -1,11 +1,11 @@
 {
-  "totalTrades": 14,
+  "totalTrades": 16,
   "wins": 4,
-  "losses": 10,
-  "winRate": 28.6,
-  "totalPnlUSD": -9.85,
-  "rsiEntryThreshold": 38,
-  "vwapProximityPct": 2.3,
+  "losses": 12,
+  "winRate": 25,
+  "totalPnlUSD": -10.69,
+  "rsiEntryThreshold": 35,
+  "vwapProximityPct": 2,
   "entryTF": "15m",
   "symbolStats": {
     "ATOMUSDT": {
@@ -45,6 +45,11 @@
     },
     "DOGEUSDT": {
       "wins": 0,
+      "losses": 2,
+      "winRate": 0
+    },
+    "LTCUSDT": {
+      "wins": 0,
       "losses": 1,
       "winRate": 0
     }
@@ -55,6 +60,14 @@
       "cooldownUntil": null
     },
     "BNBUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "DOGEUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "LTCUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -210,10 +223,36 @@
       "lesson": "BNBUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-03",
+      "time": "11:42:03",
+      "symbol": "DOGEUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-05-03",
+      "time": "11:42:06",
+      "symbol": "LTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "LTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-03T08:51:19.760Z",
+  "lastUpdated": "2026-05-03T11:42:07.285Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -264,6 +303,22 @@
         "Tightened VWAP proximity to 2.3%"
       ],
       "recentWinRate": 25
+    },
+    {
+      "date": "2026-05-03T11:42:07.285Z",
+      "changes": [
+        "Win rate 20% — tightened RSI threshold to 36",
+        "Tightened VWAP proximity to 2.0999999999999996%"
+      ],
+      "recentWinRate": 20
+    },
+    {
+      "date": "2026-05-03T20:29:22.974Z",
+      "changes": [
+        "Win rate 20% — tightened RSI threshold to 35",
+        "Tightened VWAP proximity to 2%"
+      ],
+      "recentWinRate": 20
     }
   ],
   "capitulationEvents": [
@@ -278,6 +333,12 @@
       "time": "06:54:00",
       "coinsOverbought": 13,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-03",
+      "time": "12:13:09",
+      "coinsOversold": 9,
+      "type": "oversold"
     }
   ],
   "lastDailySummaryDate": "2026-05-03",
