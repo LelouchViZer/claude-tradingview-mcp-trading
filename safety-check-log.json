@@ -513,7 +513,14 @@
       "takeProfit": 87.995,
       "side": "buy",
       "quantity": 0.8814027530667665,
-      "leverage": 5
+      "leverage": 5,
+      "outcome": "LOSS",
+      "exitPrice": 84.1505,
+      "closedAt": "2026-05-03T08:51:16.527Z",
+      "feesUSD": 0.0904,
+      "pnlPct": "-8.10",
+      "pnlUSD": "-1.22",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-03T08:35:52.512Z",
@@ -592,7 +599,64 @@
       "takeProfit": 650.455,
       "side": "buy",
       "quantity": 0.11923801681683584,
-      "leverage": 5
+      "leverage": 5,
+      "outcome": "LOSS",
+      "exitPrice": 622.037,
+      "closedAt": "2026-05-03T08:51:19.429Z",
+      "feesUSD": 0.0904,
+      "pnlPct": "-8.10",
+      "pnlUSD": "-1.22",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-03T10:55:54.177Z",
+      "symbol": "DOGEUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 0.10763,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 0.107953,
+      "takeProfit": 0.106984,
+      "quantity": 929.1089844838799,
+      "orderPlaced": true,
+      "orderId": "SCALP-1777805754177",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=54.5, 4/5 bear candles, vol 1.5x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
+    },
+    {
+      "timestamp": "2026-05-03T10:55:58.126Z",
+      "symbol": "LTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 54.87,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 55.0346,
+      "takeProfit": 54.5408,
+      "quantity": 1.822489520685256,
+      "orderPlaced": true,
+      "orderId": "SCALP-1777805758126",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=54.5, 3/5 bear candles, vol 2.0x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
     }
   ]
 }
