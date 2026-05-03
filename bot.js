@@ -147,6 +147,35 @@ const LEARN_FILE = "learning.json";
 
 // ─── Logging ────────────────────────────────────────────────────────────────
 
+// ── Pull latest state from bot-state branch on startup ──────────────────────
+// Railway redeployments reset local files to the main branch git state.
+// The bot commits state to "bot-state" branch (not main, to avoid redeploy loops).
+// On each startup we fetch the latest files from bot-state and write them locally
+// so the bot always resumes from the correct balance + open trades.
+async function pullStateFromGithub() {
+  const token = process.env.GITHUB_TOKEN;
+  const repo  = process.env.GITHUB_REPO;
+  if (!token || !repo) return;
+  const STATE_BRANCH = "bot-state";
+  const files = [LEARN_FILE, LOG_FILE];
+  for (const path of files) {
+    try {
+      const res  = await fetch(
+        `https://api.github.com/repos/${repo}/contents/${path}?ref=${STATE_BRANCH}`,
+        { headers: { Authorization: `Bearer ${token}`, "User-Agent": "khun-bot" } }
+      );
+      const meta = await res.json();
+      if (meta.content) {
+        const decoded = Buffer.from(meta.content, "base64").toString("utf8");
+        writeFileSync(path, decoded);
+        console.log(`  ✅ Restored ${path} from ${STATE_BRANCH}`);
+      }
+    } catch (e) {
+      console.log(`  ⚠️  Could not pull ${path} from ${STATE_BRANCH}: ${e.message}`);
+    }
+  }
+}
+
 function loadLog() {
   if (!existsSync(LOG_FILE)) return { trades: [] };
   return JSON.parse(readFileSync(LOG_FILE, "utf8"));
@@ -198,6 +227,11 @@ async function pushStateToGithub(reason = "trade closed") {
   if (now - _lastGithubCommit < 60_000) return; // debounce
   _lastGithubCommit = now;
 
+  // IMPORTANT: push to "bot-state" branch, NOT "main".
+  // Pushing to main triggers a Railway redeploy on every trade close → restart loop.
+  // Railway only watches "main" for deploys — "bot-state" is ignored by Railway.
+  const STATE_BRANCH = "bot-state";
+
   try {
     const files = [
       { path: LEARN_FILE,  content: readFileSync(LEARN_FILE,  "utf8") },
@@ -205,19 +239,17 @@ async function pushStateToGithub(reason = "trade closed") {
     ];
 
     for (const f of files) {
-      // Get current SHA (required by GitHub API to update a file)
+      // Get current SHA from bot-state branch (required by GitHub API to update a file)
       const getMeta = await fetch(
-        `https://api.github.com/repos/${repo}/contents/${f.path}`,
+        `https://api.github.com/repos/${repo}/contents/${f.path}?ref=${STATE_BRANCH}`,
         { headers: { Authorization: `Bearer ${token}`, "User-Agent": "khun-bot" } }
       );
       const meta = await getMeta.json();
-      // BUG FIX: if file doesn't exist yet (404), meta.sha is undefined.
-      // GitHub API: PUT without sha = create new file. PUT with sha = update existing.
-      // Old code skipped the push entirely on first run — files were never created.
       const body = JSON.stringify({
         message: `bot: auto-save ${f.path} — ${reason}`,
         content: Buffer.from(f.content).toString("base64"),
-        ...(meta.sha ? { sha: meta.sha } : {}),  // omit sha to create, include to update
+        branch: STATE_BRANCH,
+        ...(meta.sha ? { sha: meta.sha } : {}),
       });
 
       const res = await fetch(
@@ -226,7 +258,7 @@ async function pushStateToGithub(reason = "trade closed") {
       );
       const json = await res.json();
       if (json.commit) {
-        console.log(`  ✅ GitHub: ${f.path} saved (${reason})`);
+        console.log(`  ✅ GitHub: ${f.path} saved to ${STATE_BRANCH} (${reason})`);
       } else {
         console.log(`  ⚠️  GitHub push failed for ${f.path}: ${json.message || JSON.stringify(json)}`);
       }
@@ -2441,7 +2473,9 @@ async function loop() {
   // On Railway, running it every scan caused a .env-write → process.exit(0)
   // restart cycle on first boot. Moving it here fixes that.
   checkOnboarding();
-  console.log("\n🟢 Bot process started — sending Telegram startup ping...");
+  console.log("\n🟢 Bot process started — restoring state from GitHub...");
+  await pullStateFromGithub(); // fetch latest learning.json + log from bot-state branch
+  console.log("🟢 State restored — sending Telegram startup ping...");
   const log0      = loadLog();
   const learning0 = loadLearning();
   const open0     = log0.trades.filter(t => t.orderPlaced && !t.outcome);
