@@ -8,100 +8,169 @@
   "vwapProximityPct": 2.5,
   "entryTF": "15m",
   "symbolStats": {
-    "ATOMUSDT": { "wins": 1, "losses": 2, "winRate": 33 },
-    "BTCUSDT":  { "wins": 1, "losses": 0, "winRate": 100 },
-    "BNBUSDT":  { "wins": 1, "losses": 0, "winRate": 100 },
-    "SOLUSDT":  { "wins": 0, "losses": 1, "winRate": 0 },
-    "AVAXUSDT": { "wins": 0, "losses": 1, "winRate": 0 },
-    "LINKUSDT": { "wins": 1, "losses": 1, "winRate": 50 },
-    "XAUTUSDT": { "wins": 0, "losses": 1, "winRate": 0 },
-    "DOGEUSDT": { "wins": 0, "losses": 1, "winRate": 0 }
+    "ATOMUSDT": {
+      "wins": 1,
+      "losses": 2,
+      "winRate": 33
+    },
+    "BTCUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    },
+    "BNBUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    },
+    "SOLUSDT": {
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0
+    },
+    "AVAXUSDT": {
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0
+    },
+    "LINKUSDT": {
+      "wins": 1,
+      "losses": 1,
+      "winRate": 50
+    },
+    "XAUTUSDT": {
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0
+    },
+    "DOGEUSDT": {
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0
+    }
   },
   "symbolCooldowns": {},
   "tradeLessons": [
     {
-      "date": "2026-04-25", "time": "11:10:41", "symbol": "ATOMUSDT",
-      "outcome": "LOSS", "regime": "standard", "volumeAtEntry": "exhaustion",
-      "entryRSI": 100, "pnlPct": "-7.45",
+      "date": "2026-04-25",
+      "time": "11:10:41",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 100,
+      "pnlPct": "-7.45",
       "lesson": "ATOMUSDT: Only 1/4 lower-TF checks passed — weak confirmation. RSI(3)=100 on 4H but price already BELOW VWAP (mean-reversion logic contradicted itself). Momentum continued up strongly.",
       "adaptation": "RULE: Do not enter if lower-TF passCount < 2. Do not short when price is already below VWAP — the fade has already happened.",
       "severity": "warning"
     },
     {
-      "date": "2026-04-25", "time": "14:35:28", "symbol": "ATOMUSDT",
-      "outcome": "LOSS", "regime": "standard", "volumeAtEntry": "exhaustion",
-      "entryRSI": 100, "pnlPct": "-7.45",
+      "date": "2026-04-25",
+      "time": "14:35:28",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 100,
+      "pnlPct": "-7.45",
       "lesson": "ATOMUSDT: Re-entered the SAME setup just 3 hours after the first ATOM loss. Identical indicators, same outcome. This is a revenge trade — the bot re-triggered on the same stale 4H signal.",
       "adaptation": "RULE: Apply minimum 4-hour cooldown per symbol after a LOSS. Do not re-enter same symbol same session if last trade was a loss on that symbol.",
       "severity": "critical"
     },
     {
-      "date": "2026-04-28", "time": "06:54:00", "symbol": "BTCUSDT",
-      "outcome": "WIN", "regime": "standard",
+      "date": "2026-04-28",
+      "time": "06:54:00",
+      "symbol": "BTCUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
       "pnlPct": "30.00",
       "lesson": "BTCUSDT: ✅ Best-quality entry of the dataset. 3/4 lower-TF checks passed, RSI(14)=55 (not in strong trend), 1.67% from VWAP, volume exhaustion. Full TP hit.",
       "adaptation": "REINFORCE: 3/4 lower-TF confirmation is the gold standard. RSI(14) < 60 at entry = not a strong trend = mean reversion has room to work.",
       "severity": "info"
     },
     {
-      "date": "2026-04-28", "time": "06:54:00", "symbol": "BNBUSDT",
-      "outcome": "WIN", "regime": "scalp",
+      "date": "2026-04-28",
+      "time": "06:54:00",
+      "symbol": "BNBUSDT",
+      "outcome": "WIN",
+      "regime": "scalp",
       "pnlPct": "5.00",
       "lesson": "BNBUSDT: ✅ High-quality scalp. RSI(3)=87.8 + volume surge 30.5x + bearish reversal candle. Three independent signals aligned = conviction entry. TP hit cleanly.",
       "adaptation": "REINFORCE: Scalps only work with MASSIVE volume (10x+). Single RSI signal alone is not enough for scalp entry.",
       "severity": "info"
     },
     {
-      "date": "2026-04-29", "time": "11:28:00", "symbol": "ATOMUSDT",
-      "outcome": "EARLY_EXIT_PROFIT", "regime": "standard",
+      "date": "2026-04-29",
+      "time": "11:28:00",
+      "symbol": "ATOMUSDT",
+      "outcome": "EARLY_EXIT_PROFIT",
+      "regime": "standard",
       "pnlPct": "2.49",
       "lesson": "ATOMUSDT: Early exit with small profit — setup invalidated before full TP. Better than a loss but the small gain (+2.49%) barely covers fees at this leverage.",
       "adaptation": "Early exits under +3% net are marginal — fees erode them fast. Consider tightening entry criteria to only take trades with clear room to full TP.",
       "severity": "info"
     },
     {
-      "date": "2026-04-29", "time": "13:17:00", "symbol": "SOLUSDT",
-      "outcome": "LOSS", "regime": "standard",
+      "date": "2026-04-29",
+      "time": "13:17:00",
+      "symbol": "SOLUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
       "pnlPct": "-3.00",
       "lesson": "SOLUSDT: SL hit — momentum ran against the short. Market was in broad bull move on Apr 29 (capitulation event: 13 coins overbought on Apr 28). Shorting into an established uptrend.",
       "adaptation": "RULE: During/after a capitulation event (10+ coins overbought), avoid new SHORT entries for 6 hours. Wait for actual reversal confirmation.",
       "severity": "warning"
     },
     {
-      "date": "2026-04-29", "time": "13:17:00", "symbol": "AVAXUSDT",
-      "outcome": "LOSS", "regime": "standard",
+      "date": "2026-04-29",
+      "time": "13:17:00",
+      "symbol": "AVAXUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
       "pnlPct": "-2.99",
       "lesson": "AVAXUSDT: SL hit same minute as SOLUSDT. Two highly correlated altcoins entered simultaneously in same direction = double exposure to the same market move. Both lost together.",
       "adaptation": "RULE: Do not hold more than 1 open trade in highly correlated altcoins (SOL/AVAX/ATOM/LINK are all correlated in bull moves). Stagger entries or pick only the strongest signal.",
       "severity": "critical"
     },
     {
-      "date": "2026-04-29", "time": "16:11:00", "symbol": "LINKUSDT",
-      "outcome": "LOSS", "regime": "scalp",
+      "date": "2026-04-29",
+      "time": "16:11:00",
+      "symbol": "LINKUSDT",
+      "outcome": "LOSS",
+      "regime": "scalp",
       "pnlPct": "0.00",
       "lesson": "LINKUSDT: Breakeven scalp — trailing stop moved to entry and triggered. Capital protected.",
       "adaptation": "Trailing stop to breakeven is working correctly. This is the correct outcome for a setup that moved in our favor briefly then reversed.",
       "severity": "info"
     },
     {
-      "date": "2026-04-29", "time": "08:06:00", "symbol": "XAUTUSDT",
-      "outcome": "LOSS", "regime": "standard",
+      "date": "2026-04-29",
+      "time": "08:06:00",
+      "symbol": "XAUTUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
       "pnlPct": "0.00",
       "lesson": "XAUTUSDT: Breakeven hit — trailing stop protected capital. Gold (XAUT) behaves differently from crypto — it does not follow the same RSI/VWAP mean-reversion cycles. During crypto bull runs, gold tends to consolidate or also rally separately.",
       "adaptation": "CONSIDER: Remove XAUTUSDT from watchlist or reduce position size. Gold's correlation to crypto is unreliable for this strategy — RSI overbought in XAUT means different things than in crypto.",
       "severity": "warning"
     },
     {
-      "date": "2026-04-29", "time": "08:06:00", "symbol": "LINKUSDT",
-      "outcome": "EARLY_EXIT_PROFIT", "regime": "extreme_resistance",
+      "date": "2026-04-29",
+      "time": "08:06:00",
+      "symbol": "LINKUSDT",
+      "outcome": "EARLY_EXIT_PROFIT",
+      "regime": "extreme_resistance",
       "pnlPct": "0.43",
       "lesson": "LINKUSDT: Early exit +0.43% — setup invalidated (RSI=100, price above VWAP+EMA20). Tiny gain after fees likely = near-zero or slight negative real PnL.",
       "adaptation": "Early exits below +1% should be treated as breakeven. The early-exit logic is correct in principle but entries need to be better to have room for full TP.",
       "severity": "info"
     },
     {
-      "date": "2026-04-29", "time": "11:13:00", "symbol": "DOGEUSDT",
-      "outcome": "LOSS", "regime": "extreme_resistance",
+      "date": "2026-04-29",
+      "time": "11:13:00",
+      "symbol": "DOGEUSDT",
+      "outcome": "LOSS",
+      "regime": "extreme_resistance",
       "pnlPct": "-3.00",
       "lesson": "DOGEUSDT: SL hit. Trade also had the SL/TP precision bug (toFixed(2) rounding $0.10 prices to entry price). Bug now fixed with dynamic decimal places. Underlying setup also weak — extreme_resistance regime during broad bull move.",
       "adaptation": "Price precision bug fixed. Also: extreme_resistance regime entries during a market-wide bull run are high risk — the 'resistance' breaks easily in euphoria conditions.",
@@ -156,15 +225,19 @@
   ],
   "capitulationEvents": [
     {
-      "date": "2026-04-25", "time": "05:19:05",
-      "coinsOverbought": 8, "type": "overbought"
+      "date": "2026-04-25",
+      "time": "05:19:05",
+      "coinsOverbought": 8,
+      "type": "overbought"
     },
     {
-      "date": "2026-04-28", "time": "06:54:00",
-      "coinsOverbought": 13, "type": "overbought"
+      "date": "2026-04-28",
+      "time": "06:54:00",
+      "coinsOverbought": 13,
+      "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-04-29",
+  "lastDailySummaryDate": "2026-05-03",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
