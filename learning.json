@@ -1,11 +1,11 @@
 {
-  "totalTrades": 12,
+  "totalTrades": 14,
   "wins": 4,
-  "losses": 8,
-  "winRate": 33,
-  "totalPnlUSD": -7.41,
-  "rsiEntryThreshold": 40,
-  "vwapProximityPct": 2.5,
+  "losses": 10,
+  "winRate": 28.6,
+  "totalPnlUSD": -9.85,
+  "rsiEntryThreshold": 38,
+  "vwapProximityPct": 2.3,
   "entryTF": "15m",
   "symbolStats": {
     "ATOMUSDT": {
@@ -20,12 +20,12 @@
     },
     "BNBUSDT": {
       "wins": 1,
-      "losses": 0,
-      "winRate": 100
+      "losses": 1,
+      "winRate": 50
     },
     "SOLUSDT": {
       "wins": 0,
-      "losses": 1,
+      "losses": 2,
       "winRate": 0
     },
     "AVAXUSDT": {
@@ -49,7 +49,16 @@
       "winRate": 0
     }
   },
-  "symbolCooldowns": {},
+  "symbolCooldowns": {
+    "SOLUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "BNBUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    }
+  },
   "tradeLessons": [
     {
       "date": "2026-04-25",
@@ -175,10 +184,36 @@
       "lesson": "DOGEUSDT: SL hit. Trade also had the SL/TP precision bug (toFixed(2) rounding $0.10 prices to entry price). Bug now fixed with dynamic decimal places. Underlying setup also weak — extreme_resistance regime during broad bull move.",
       "adaptation": "Price precision bug fixed. Also: extreme_resistance regime entries during a market-wide bull run are high risk — the 'resistance' breaks easily in euphoria conditions.",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-03",
+      "time": "08:51:16",
+      "symbol": "SOLUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 30.98,
+      "pnlPct": "-8.10",
+      "lesson": "SOLUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-05-03",
+      "time": "08:51:19",
+      "symbol": "BNBUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 33.05,
+      "pnlPct": "-8.10",
+      "lesson": "BNBUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-02T00:00:00.000Z",
+  "lastUpdated": "2026-05-03T08:51:19.760Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -221,7 +256,15 @@
     "  The strategy CAN work (BTC +30% trade proves it) but needs tighter entry filters.",
     "  Current bot is over-trading — taking 12 trades in ~4 days with weak confirmation.",
     "  Quality over quantity: 4-5 high-conviction trades per week > 12 marginal ones.",
-    "  Recommended Railway STOP_LOSS_PCT=1.5, leverage 5x for standard, 10x for scalps only."
+    "  Recommended Railway STOP_LOSS_PCT=1.5, leverage 5x for standard, 10x for scalps only.",
+    {
+      "date": "2026-05-03T08:51:19.760Z",
+      "changes": [
+        "Win rate 25% — tightened RSI threshold to 38",
+        "Tightened VWAP proximity to 2.3%"
+      ],
+      "recentWinRate": 25
+    }
   ],
   "capitulationEvents": [
     {
