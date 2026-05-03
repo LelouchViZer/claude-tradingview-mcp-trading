@@ -24,13 +24,13 @@
       },
       "conditions": [
         {
-          "label": "RSI(3) overbought (> 65) \u2014 overextended",
+          "label": "RSI(3) overbought (> 65) — overextended",
           "required": "> 65",
           "actual": "80.53",
           "pass": true
         },
         {
-          "label": "RSI(14) below 70 \u2014 not a parabolic breakout",
+          "label": "RSI(14) below 70 — not a parabolic breakout",
           "required": "< 70",
           "actual": "55.17",
           "pass": true
@@ -43,7 +43,7 @@
         },
         {
           "label": "Volume NOT surging (need exhaustion to fade)",
-          "required": "\u2260 surging",
+          "required": "≠ surging",
           "actual": "exhaustion",
           "pass": true
         }
@@ -70,18 +70,18 @@
         },
         "entryTF": "15m",
         "rsi": 50.06622516556355,
-        "reason": "4H conditions met \u2014 entering (15m context: 3/4)"
+        "reason": "4H conditions met — entering (15m context: 3/4)"
       },
       "confidence": {
         "finalSize": 10,
         "confidencePct": 57,
         "score": 57.1,
         "breakdown": {
-          "lowerTF": "3/4 checks \u2192 26.3pts",
-          "rsi": "depth 51% \u2192 12.8pts",
-          "vwap": "1.67% from VWAP \u2192 5.0pts",
-          "symbolWR": "no history yet \u2192 default 7.5pts",
-          "overallWR": "new bot, default 55% \u2192 5.5pts"
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 51% → 12.8pts",
+          "vwap": "1.67% from VWAP → 5.0pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "new bot, default 55% → 5.5pts"
         },
         "dynamicLeverage": 10
       },
@@ -95,7 +95,7 @@
       "closedAt": "2026-04-29T20:00:00.000Z",
       "pnlPct": "21.52",
       "pnlUSD": "2.15",
-      "exitReason": "Setup invalidated \u2014 price above VWAP+EMA20, RSI(3)=100.0 (confirmed 2 scans)",
+      "exitReason": "Setup invalidated — price above VWAP+EMA20, RSI(3)=100.0 (confirmed 2 scans)",
       "_lessonRecorded": true,
       "_earlyExitWarnings": 1
     },
@@ -123,7 +123,7 @@
       },
       "conditions": [
         {
-          "label": "RSI(3) above 65 \u2014 overbought in range",
+          "label": "RSI(3) above 65 — overbought in range",
           "required": "> 65",
           "actual": "100.00",
           "pass": true
@@ -136,7 +136,7 @@
         },
         {
           "label": "Volume NOT surging (need fading momentum to short)",
-          "required": "\u2260 surging",
+          "required": "≠ surging",
           "actual": "exhaustion",
           "pass": true
         }
@@ -163,18 +163,18 @@
         },
         "entryTF": "15m",
         "rsi": 0,
-        "reason": "4H conditions met \u2014 entering (15m context: 1/4)"
+        "reason": "4H conditions met — entering (15m context: 1/4)"
       },
       "confidence": {
         "finalSize": 20,
         "confidencePct": 52,
         "score": 51.5,
         "breakdown": {
-          "lowerTF": "1/4 checks \u2192 8.8pts",
-          "rsi": "depth 100% \u2192 25.0pts",
-          "vwap": "1.71% from VWAP \u2192 4.8pts",
-          "symbolWR": "no history yet \u2192 default 7.5pts",
-          "overallWR": "new bot, default 55% \u2192 5.5pts"
+          "lowerTF": "1/4 checks → 8.8pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "1.71% from VWAP → 4.8pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "new bot, default 55% → 5.5pts"
         },
         "dynamicLeverage": 5
       },
@@ -214,7 +214,7 @@
       },
       "conditions": [
         {
-          "label": "RSI(3) above 65 \u2014 overbought in range",
+          "label": "RSI(3) above 65 — overbought in range",
           "required": "> 65",
           "actual": "100.00",
           "pass": true
@@ -227,7 +227,7 @@
         },
         {
           "label": "Volume NOT surging (need fading momentum to short)",
-          "required": "\u2260 surging",
+          "required": "≠ surging",
           "actual": "exhaustion",
           "pass": true
         }
@@ -254,18 +254,18 @@
         },
         "entryTF": "15m",
         "rsi": 0,
-        "reason": "4H conditions met \u2014 entering (15m context: 1/4)"
+        "reason": "4H conditions met — entering (15m context: 1/4)"
       },
       "confidence": {
         "finalSize": 20,
         "confidencePct": 49,
         "score": 49.4,
         "breakdown": {
-          "lowerTF": "1/4 checks \u2192 8.8pts",
-          "rsi": "depth 100% \u2192 25.0pts",
-          "vwap": "2.06% from VWAP \u2192 2.6pts",
-          "symbolWR": "no history yet \u2192 default 7.5pts",
-          "overallWR": "new bot, default 55% \u2192 5.5pts"
+          "lowerTF": "1/4 checks → 8.8pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "2.06% from VWAP → 2.6pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "new bot, default 55% → 5.5pts"
         },
         "dynamicLeverage": 5
       },
@@ -336,7 +336,7 @@
       },
       "conditions": [
         {
-          "label": "RSI(3) above 65 \u2014 overbought in range",
+          "label": "RSI(3) above 65 — overbought in range",
           "required": "> 65",
           "actual": "65.35",
           "pass": true
@@ -349,7 +349,7 @@
         },
         {
           "label": "Volume NOT surging (need fading momentum to short)",
-          "required": "\u2260 surging",
+          "required": "≠ surging",
           "actual": "normal",
           "pass": true
         }
@@ -376,18 +376,18 @@
         },
         "entryTF": "15m",
         "rsi": 100,
-        "reason": "4H conditions met \u2014 entering (15m context: 4/4)"
+        "reason": "4H conditions met — entering (15m context: 4/4)"
       },
       "confidence": {
         "finalSize": 7.53,
         "confidencePct": 56,
         "score": 56.2,
         "breakdown": {
-          "lowerTF": "4/4 checks \u2192 35.0pts",
-          "rsi": "depth 13% \u2192 3.3pts",
-          "vwap": "1.33% from VWAP \u2192 7.0pts",
-          "symbolWR": "no history yet \u2192 default 7.5pts",
-          "overallWR": "33% overall \u2192 3.3pts"
+          "lowerTF": "4/4 checks → 35.0pts",
+          "rsi": "depth 13% → 3.3pts",
+          "vwap": "1.33% from VWAP → 7.0pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "33% overall → 3.3pts"
         },
         "dynamicLeverage": 10
       },
@@ -419,7 +419,7 @@
       "orderPlaced": true,
       "orderId": "SCALP-1777795115917",
       "paperTrading": true,
-      "scalpReason": "5m momentum SHORT \u2014 EMA8<EMA21, RSI(3)=43.9, 3/5 bear candles, vol 2.5x avg",
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=43.9, 3/5 bear candles, vol 2.5x avg",
       "conditions": [
         {
           "label": "Scalp signal",
@@ -435,6 +435,164 @@
       "pnlUSD": "-0.42",
       "feesUSD": 0.12,
       "_lessonRecorded": false
+    },
+    {
+      "timestamp": "2026-05-03T08:35:50.400Z",
+      "symbol": "SOLUSDT",
+      "timeframe": "4H",
+      "price": 85.432,
+      "indicators": {
+        "ema8": 84.92565831233848,
+        "ema20": 83.9009256038702,
+        "ema50": 83.59951635892006,
+        "vwap": 83.79812918534311,
+        "rsi3": 30.97851290771375,
+        "rsi14": 67.29818290140005,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 1.11
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) below 35 — oversold in range",
+          "required": "< 35",
+          "actual": "30.98",
+          "pass": true
+        },
+        {
+          "label": "Price within 2.5% of VWAP",
+          "required": "< 2.5%",
+          "actual": "1.95%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 15.06,
+      "orderPlaced": true,
+      "orderId": "PAPER-1777797350527",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 2
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 3,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": false,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 13.599999999996726,
+        "reason": "4H conditions met — entering (15m context: 3/4)"
+      },
+      "confidence": {
+        "finalSize": 15.06,
+        "confidencePct": 46,
+        "score": 46,
+        "breakdown": {
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 23% → 5.6pts",
+          "vwap": "1.95% from VWAP → 3.3pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "33% overall → 3.3pts"
+        },
+        "dynamicLeverage": 5
+      },
+      "stopLoss": 84.1505,
+      "takeProfit": 87.995,
+      "side": "buy",
+      "quantity": 0.8814027530667665,
+      "leverage": 5
+    },
+    {
+      "timestamp": "2026-05-03T08:35:52.512Z",
+      "symbol": "BNBUSDT",
+      "timeframe": "4H",
+      "price": 631.51,
+      "indicators": {
+        "ema8": 628.4065400218382,
+        "ema20": 622.6994202858008,
+        "ema50": 618.9131933172702,
+        "vwap": 616.2958945587719,
+        "rsi3": 33.05112341256921,
+        "rsi14": 72.48039330445985,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 1.3
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) below 35 — oversold in range",
+          "required": "< 35",
+          "actual": "33.05",
+          "pass": true
+        },
+        {
+          "label": "Price within 2.5% of VWAP",
+          "required": "< 2.5%",
+          "actual": "2.47%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 15.06,
+      "orderPlaced": true,
+      "orderId": "PAPER-1777797352633",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 3
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 4,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": true,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 41.66666666667456,
+        "reason": "4H conditions met — entering (15m context: 4/4)"
+      },
+      "confidence": {
+        "finalSize": 15.06,
+        "confidencePct": 50,
+        "score": 50.3,
+        "breakdown": {
+          "lowerTF": "4/4 checks → 35.0pts",
+          "rsi": "depth 17% → 4.3pts",
+          "vwap": "2.47% from VWAP → 0.2pts",
+          "symbolWR": "no history yet → default 7.5pts",
+          "overallWR": "33% overall → 3.3pts"
+        },
+        "dynamicLeverage": 5
+      },
+      "stopLoss": 622.037,
+      "takeProfit": 650.455,
+      "side": "buy",
+      "quantity": 0.11923801681683584,
+      "leverage": 5
     }
   ]
 }
