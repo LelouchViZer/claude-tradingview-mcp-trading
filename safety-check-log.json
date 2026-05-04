@@ -887,6 +887,63 @@
         }
       ],
       "allPass": true,
+      "bias": "buy",
+      "outcome": "WIN",
+      "exitPrice": 1.28788,
+      "closedAt": "2026-05-04T03:12:44.981Z",
+      "feesUSD": 0.12,
+      "pnlPct": "4.80",
+      "pnlUSD": "0.48",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-04T03:13:09.415Z",
+      "symbol": "SOLUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 84.748,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 84.4938,
+      "takeProfit": 85.2565,
+      "quantity": 1.179968848822391,
+      "orderPlaced": true,
+      "orderId": "SCALP-1777864389415",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=70.8, 3/5 bull candles, vol 4.5x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
+    },
+    {
+      "timestamp": "2026-05-04T03:13:12.208Z",
+      "symbol": "ADAUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 0.251,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 0.250247,
+      "takeProfit": 0.252506,
+      "quantity": 398.40637450199205,
+      "orderPlaced": true,
+      "orderId": "SCALP-1777864392208",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=54.5, 3/5 bull candles, vol 3.1x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
       "bias": "buy"
     }
   ]
