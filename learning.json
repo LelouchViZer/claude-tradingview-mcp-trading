@@ -1,9 +1,9 @@
 {
-  "totalTrades": 18,
-  "wins": 4,
+  "totalTrades": 19,
+  "wins": 5,
   "losses": 14,
-  "winRate": 22.2,
-  "totalPnlUSD": -11.57,
+  "winRate": 26.3,
+  "totalPnlUSD": -11.09,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -52,6 +52,11 @@
       "wins": 0,
       "losses": 2,
       "winRate": 0
+    },
+    "NEARUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
     }
   },
   "symbolCooldowns": {
@@ -279,10 +284,23 @@
       "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-04",
+      "time": "03:12:44",
+      "symbol": "NEARUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "NEARUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on NEARUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-04T02:10:36.070Z",
+  "lastUpdated": "2026-05-04T03:12:47.719Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
