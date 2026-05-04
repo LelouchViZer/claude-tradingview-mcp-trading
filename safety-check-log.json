@@ -905,7 +905,7 @@
       "side": "buy",
       "tradeSize": 10,
       "leverage": 10,
-      "stopLoss": 84.4938,
+      "stopLoss": 84.8327,
       "takeProfit": 85.2565,
       "quantity": 1.179968848822391,
       "orderPlaced": true,
@@ -944,7 +944,14 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "WIN",
+      "exitPrice": 0.252506,
+      "closedAt": "2026-05-04T03:28:19.894Z",
+      "feesUSD": 0.12,
+      "pnlPct": "4.80",
+      "pnlUSD": "0.48",
+      "_lessonRecorded": true
     }
   ]
 }
