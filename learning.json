@@ -1,9 +1,9 @@
 {
-  "totalTrades": 19,
-  "wins": 5,
+  "totalTrades": 20,
+  "wins": 6,
   "losses": 14,
-  "winRate": 26.3,
-  "totalPnlUSD": -11.09,
+  "winRate": 30,
+  "totalPnlUSD": -10.61,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -54,6 +54,11 @@
       "winRate": 0
     },
     "NEARUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    },
+    "ADAUSDT": {
       "wins": 1,
       "losses": 0,
       "winRate": 100
@@ -297,10 +302,23 @@
       "lesson": "NEARUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on NEARUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-04",
+      "time": "03:28:19",
+      "symbol": "ADAUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "ADAUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on ADAUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-04T03:12:47.719Z",
+  "lastUpdated": "2026-05-04T03:28:22.590Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
