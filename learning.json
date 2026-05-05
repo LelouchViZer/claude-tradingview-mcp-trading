@@ -1,9 +1,9 @@
 {
-  "totalTrades": 21,
+  "totalTrades": 22,
   "wins": 7,
-  "losses": 14,
-  "winRate": 33.3,
-  "totalPnlUSD": -10.13,
+  "losses": 15,
+  "winRate": 31.8,
+  "totalPnlUSD": -11.09,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -25,8 +25,8 @@
     },
     "SOLUSDT": {
       "wins": 1,
-      "losses": 2,
-      "winRate": 33.3
+      "losses": 3,
+      "winRate": 25
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -66,7 +66,7 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "BNBUSDT": {
@@ -328,6 +328,19 @@
       "lesson": "SOLUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on SOLUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-04",
+      "time": "15:06:15",
+      "symbol": "SOLUSDT",
+      "outcome": "EARLY_EXIT_LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 74.25,
+      "pnlPct": "-7.21",
+      "lesson": "SOLUSDT: Momentum trade failed — Setup invalidated — price above VWAP+EMA20, RSI(3)=74.3 (confirmed 2 scans)",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
@@ -424,9 +437,15 @@
       "time": "00:06:19",
       "coinsOverbought": 8,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "00:09:07",
+      "coinsOverbought": 13,
+      "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-04",
+  "lastDailySummaryDate": "2026-05-05",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
