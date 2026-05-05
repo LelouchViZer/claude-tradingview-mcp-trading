@@ -1,9 +1,9 @@
 {
-  "totalTrades": 22,
-  "wins": 7,
+  "totalTrades": 23,
+  "wins": 8,
   "losses": 15,
-  "winRate": 31.8,
-  "totalPnlUSD": -11.09,
+  "winRate": 34.8,
+  "totalPnlUSD": -11.01,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -19,9 +19,9 @@
       "winRate": 100
     },
     "BNBUSDT": {
-      "wins": 1,
+      "wins": 2,
       "losses": 1,
-      "winRate": 50
+      "winRate": 66.7
     },
     "SOLUSDT": {
       "wins": 1,
@@ -70,7 +70,7 @@
       "cooldownUntil": null
     },
     "BNBUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "DOGEUSDT": {
@@ -340,6 +340,19 @@
       "pnlPct": "-7.21",
       "lesson": "SOLUSDT: Momentum trade failed — Setup invalidated — price above VWAP+EMA20, RSI(3)=74.3 (confirmed 2 scans)",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "00:55:37",
+      "symbol": "BNBUSDT",
+      "outcome": "EARLY_EXIT_PROFIT",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 79.74,
+      "pnlPct": "0.63",
+      "lesson": "BNBUSDT: Early exit captured only 4% of TP potential (0.6% vs 15.0% target) — exited too early",
+      "adaptation": "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied",
       "severity": "warning"
     }
   ],
