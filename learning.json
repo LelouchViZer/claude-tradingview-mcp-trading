@@ -1,22 +1,22 @@
 {
-  "totalTrades": 23,
+  "totalTrades": 25,
   "wins": 8,
-  "losses": 15,
-  "winRate": 34.8,
-  "totalPnlUSD": -11.01,
+  "losses": 17,
+  "winRate": 32,
+  "totalPnlUSD": -11.51,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
   "symbolStats": {
     "ATOMUSDT": {
       "wins": 1,
-      "losses": 3,
-      "winRate": 25
+      "losses": 4,
+      "winRate": 20
     },
     "BTCUSDT": {
       "wins": 1,
-      "losses": 0,
-      "winRate": 100
+      "losses": 1,
+      "winRate": 50
     },
     "BNBUSDT": {
       "wins": 2,
@@ -82,6 +82,10 @@
       "cooldownUntil": null
     },
     "ATOMUSDT": {
+      "consecutiveLosses": 2,
+      "cooldownUntil": "2026-05-05T04:26:43.375Z"
+    },
+    "BTCUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -354,10 +358,36 @@
       "lesson": "BNBUSDT: Early exit captured only 4% of TP potential (0.6% vs 15.0% target) — exited too early",
       "adaptation": "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "01:26:43",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "exhaustion",
+      "entryRSI": 33.07,
+      "pnlPct": "-0.60",
+      "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ATOMUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "01:26:46",
+      "symbol": "BTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-04T03:59:25.969Z",
+  "lastUpdated": "2026-05-05T01:26:46.464Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
