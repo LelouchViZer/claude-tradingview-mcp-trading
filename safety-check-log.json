@@ -1044,7 +1044,15 @@
       "side": "sell",
       "quantity": 0.7905633584324769,
       "leverage": 5,
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 2,
+      "outcome": "EARLY_EXIT_LOSS",
+      "exitPrice": 84.909,
+      "closedAt": "2026-05-04T15:06:15.329Z",
+      "exitReason": "Setup invalidated — price above VWAP+EMA20, RSI(3)=74.3 (confirmed 2 scans)",
+      "feesUSD": 0.0795,
+      "pnlPct": "-7.21",
+      "pnlUSD": "-0.96",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-04T12:00:16.728Z",
@@ -1129,6 +1137,98 @@
       "takeProfit": 607.113,
       "side": "sell",
       "quantity": 0.10584927063861062,
+      "leverage": 5,
+      "_earlyExitWarnings": 1
+    },
+    {
+      "timestamp": "2026-05-04T15:06:35.005Z",
+      "symbol": "ATOMUSDT",
+      "timeframe": "4H",
+      "price": 1.9029,
+      "indicators": {
+        "ema8": 1.921531240024779,
+        "ema20": 1.9648605668397472,
+        "ema50": 2.0528287546364123,
+        "vwap": 1.8883008500517733,
+        "rsi3": 33.066132264529244,
+        "rsi14": 41.87880960917893,
+        "volumeTrend": {
+          "trend": "exhaustion",
+          "ratio": 0.35
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "exhaustion"
+      },
+      "conditions": [
+        {
+          "label": "EMA(20) < EMA(50) — downtrend confirmed",
+          "required": "< 2.05",
+          "actual": "1.96",
+          "pass": true
+        },
+        {
+          "label": "RSI(3) below 50 — momentum short",
+          "required": "< 50",
+          "actual": "33.07",
+          "pass": true
+        },
+        {
+          "label": "RSI(14) below 50 — medium-term bearish",
+          "required": "< 50",
+          "actual": "41.88",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "0.77%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bearish",
+      "tradeSize": 12.61,
+      "orderPlaced": true,
+      "orderId": "PAPER-1777907195128",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 5
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 3,
+        "checks": {
+          "rsiFavourable": false,
+          "nearVwap": true,
+          "confirmCandle": true,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 19.999999999997783,
+        "reason": "4H conditions met — entering (15m context: 3/4)"
+      },
+      "confidence": {
+        "finalSize": 12.61,
+        "confidencePct": 42,
+        "score": 42.4,
+        "breakdown": {
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 0% → 0.0pts",
+          "vwap": "0.77% from VWAP → 9.2pts",
+          "symbolWR": "25% on 4 trades → 3.8pts",
+          "overallWR": "31.8% overall → 3.2pts"
+        },
+        "dynamicLeverage": 5
+      },
+      "stopLoss": 1.9029,
+      "takeProfit": 1.84581,
+      "side": "sell",
+      "quantity": 33.133638131273315,
       "leverage": 5
     }
   ]
