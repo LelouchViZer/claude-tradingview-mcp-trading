@@ -1,17 +1,17 @@
 {
-  "totalTrades": 27,
-  "wins": 9,
+  "totalTrades": 28,
+  "wins": 10,
   "losses": 18,
-  "winRate": 33.3,
-  "totalPnlUSD": -11.45,
+  "winRate": 35.7,
+  "totalPnlUSD": -9.67,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
   "symbolStats": {
     "ATOMUSDT": {
-      "wins": 1,
+      "wins": 2,
       "losses": 4,
-      "winRate": 20
+      "winRate": 33.3
     },
     "BTCUSDT": {
       "wins": 1,
@@ -419,10 +419,23 @@
       "lesson": "DOTUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on DOTUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "16:42:14",
+      "symbol": "ATOMUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "surging",
+      "entryRSI": 0,
+      "pnlPct": "14.40",
+      "lesson": "ATOMUSDT: ✅ Full TP hit +15.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on ATOMUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-05T06:52:30.687Z",
+  "lastUpdated": "2026-05-05T16:42:18.089Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
