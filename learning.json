@@ -1,9 +1,9 @@
 {
-  "totalTrades": 26,
-  "wins": 8,
+  "totalTrades": 27,
+  "wins": 9,
   "losses": 18,
-  "winRate": 30.8,
-  "totalPnlUSD": -11.93,
+  "winRate": 33.3,
+  "totalPnlUSD": -11.45,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -59,6 +59,11 @@
       "winRate": 100
     },
     "ADAUSDT": {
+      "wins": 1,
+      "losses": 0,
+      "winRate": 100
+    },
+    "DOTUSDT": {
       "wins": 1,
       "losses": 0,
       "winRate": 100
@@ -401,10 +406,23 @@
       "lesson": "LINKUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "06:52:27",
+      "symbol": "DOTUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "DOTUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on DOTUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-05T01:42:20.378Z",
+  "lastUpdated": "2026-05-05T06:52:30.687Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
