@@ -1,9 +1,9 @@
 {
-  "totalTrades": 25,
+  "totalTrades": 26,
   "wins": 8,
-  "losses": 17,
-  "winRate": 32,
-  "totalPnlUSD": -11.51,
+  "losses": 18,
+  "winRate": 30.8,
+  "totalPnlUSD": -11.93,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -35,8 +35,8 @@
     },
     "LINKUSDT": {
       "wins": 1,
-      "losses": 1,
-      "winRate": 50
+      "losses": 2,
+      "winRate": 33.3
     },
     "XAUTUSDT": {
       "wins": 0,
@@ -82,10 +82,14 @@
       "cooldownUntil": null
     },
     "ATOMUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-05-05T04:26:43.375Z"
+      "consecutiveLosses": 0,
+      "cooldownUntil": null
     },
     "BTCUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "LINKUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -384,10 +388,23 @@
       "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "01:42:17",
+      "symbol": "LINKUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "LINKUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-05T01:26:46.464Z",
+  "lastUpdated": "2026-05-05T01:42:20.378Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
