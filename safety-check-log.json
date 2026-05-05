@@ -1301,7 +1301,39 @@
         }
       ],
       "allPass": true,
-      "bias": "sell"
+      "bias": "sell",
+      "outcome": "LOSS",
+      "exitPrice": 9.35097,
+      "closedAt": "2026-05-05T01:42:17.352Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-05T02:29:15.241Z",
+      "symbol": "DOTUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 1.239,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 1.24024,
+      "takeProfit": 1.24643,
+      "quantity": 80.71025020177562,
+      "orderPlaced": true,
+      "orderId": "SCALP-1777948155241",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=50.0, 4/5 bull candles, vol 2.0x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
     }
   ]
 }
