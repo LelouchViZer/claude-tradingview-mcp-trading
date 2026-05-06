@@ -1,9 +1,9 @@
 {
-  "totalTrades": 28,
+  "totalTrades": 29,
   "wins": 10,
-  "losses": 18,
-  "winRate": 35.7,
-  "totalPnlUSD": -9.67,
+  "losses": 19,
+  "winRate": 34.5,
+  "totalPnlUSD": -10.67,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -60,8 +60,8 @@
     },
     "ADAUSDT": {
       "wins": 1,
-      "losses": 0,
-      "winRate": 100
+      "losses": 1,
+      "winRate": 50
     },
     "DOTUSDT": {
       "wins": 1,
@@ -95,6 +95,10 @@
       "cooldownUntil": null
     },
     "LINKUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "ADAUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -432,10 +436,23 @@
       "lesson": "ATOMUSDT: ✅ Full TP hit +15.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on ATOMUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-05",
+      "time": "20:50:41",
+      "symbol": "ADAUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 36.51,
+      "pnlPct": "-16.20",
+      "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-05T16:42:18.089Z",
+  "lastUpdated": "2026-05-05T20:50:44.703Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -536,7 +553,7 @@
       "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-05",
+  "lastDailySummaryDate": "2026-05-06",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
