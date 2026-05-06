@@ -1,9 +1,9 @@
 {
-  "totalTrades": 31,
+  "totalTrades": 32,
   "wins": 10,
-  "losses": 21,
-  "winRate": 32.3,
-  "totalPnlUSD": -11.51,
+  "losses": 22,
+  "winRate": 31.3,
+  "totalPnlUSD": -11.93,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -65,8 +65,8 @@
     },
     "DOTUSDT": {
       "wins": 1,
-      "losses": 0,
-      "winRate": 100
+      "losses": 1,
+      "winRate": 50
     }
   },
   "symbolCooldowns": {
@@ -99,6 +99,10 @@
       "cooldownUntil": "2026-05-06T07:36:23.743Z"
     },
     "ADAUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "DOTUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -475,10 +479,23 @@
       "lesson": "LINKUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ LINKUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-06",
+      "time": "05:38:28",
+      "symbol": "DOTUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-06T04:36:26.307Z",
+  "lastUpdated": "2026-05-06T05:38:31.777Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
