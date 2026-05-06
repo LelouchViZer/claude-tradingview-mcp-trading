@@ -1,9 +1,9 @@
 {
-  "totalTrades": 32,
+  "totalTrades": 33,
   "wins": 10,
-  "losses": 22,
-  "winRate": 31.3,
-  "totalPnlUSD": -11.93,
+  "losses": 23,
+  "winRate": 30.3,
+  "totalPnlUSD": -12.93,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -60,8 +60,8 @@
     },
     "ADAUSDT": {
       "wins": 1,
-      "losses": 1,
-      "winRate": 50
+      "losses": 2,
+      "winRate": 33.3
     },
     "DOTUSDT": {
       "wins": 1,
@@ -95,11 +95,11 @@
       "cooldownUntil": null
     },
     "LINKUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-05-06T07:36:23.743Z"
+      "consecutiveLosses": 0,
+      "cooldownUntil": null
     },
     "ADAUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "DOTUSDT": {
@@ -492,10 +492,23 @@
       "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-06",
+      "time": "05:54:01",
+      "symbol": "ADAUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 37.78,
+      "pnlPct": "-8.10",
+      "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ADAUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-06T05:38:31.777Z",
+  "lastUpdated": "2026-05-06T05:54:04.680Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -594,6 +607,12 @@
       "time": "00:09:07",
       "coinsOverbought": 13,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-06",
+      "time": "08:13:18",
+      "coinsOversold": 8,
+      "type": "oversold"
     }
   ],
   "lastDailySummaryDate": "2026-05-06",
