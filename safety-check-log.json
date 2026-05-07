@@ -1944,7 +1944,39 @@
         }
       ],
       "allPass": true,
-      "bias": "sell"
+      "bias": "sell",
+      "outcome": "WIN",
+      "exitPrice": 88.474,
+      "closedAt": "2026-05-07T00:45:39.194Z",
+      "feesUSD": 0.12,
+      "pnlPct": "4.80",
+      "pnlUSD": "0.48",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-07T00:46:09.014Z",
+      "symbol": "LTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 56.98,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 56.8091,
+      "takeProfit": 57.3219,
+      "quantity": 1.7550017550017551,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778114769014",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=50.0, 3/5 bull candles, vol 1.2x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
     }
   ]
 }
