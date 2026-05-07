@@ -1,9 +1,9 @@
 {
-  "totalTrades": 34,
-  "wins": 10,
+  "totalTrades": 35,
+  "wins": 11,
   "losses": 24,
-  "winRate": 29.4,
-  "totalPnlUSD": -13.85,
+  "winRate": 31.4,
+  "totalPnlUSD": -13.37,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -24,9 +24,9 @@
       "winRate": 66.7
     },
     "SOLUSDT": {
-      "wins": 1,
+      "wins": 2,
       "losses": 3,
-      "winRate": 25
+      "winRate": 40
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -71,7 +71,7 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "BNBUSDT": {
@@ -103,8 +103,8 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-05-07T00:39:35.206Z"
+      "consecutiveLosses": 0,
+      "cooldownUntil": null
     }
   },
   "tradeLessons": [
@@ -518,10 +518,23 @@
       "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOTUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-07",
+      "time": "00:45:39",
+      "symbol": "SOLUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "SOLUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on SOLUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-06T21:39:38.169Z",
+  "lastUpdated": "2026-05-07T00:45:42.011Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
