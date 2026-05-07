@@ -1,9 +1,9 @@
 {
-  "totalTrades": 35,
+  "totalTrades": 36,
   "wins": 11,
-  "losses": 24,
-  "winRate": 31.4,
-  "totalPnlUSD": -13.37,
+  "losses": 25,
+  "winRate": 30.6,
+  "totalPnlUSD": -13.79,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -50,7 +50,7 @@
     },
     "LTCUSDT": {
       "wins": 0,
-      "losses": 2,
+      "losses": 3,
       "winRate": 0
     },
     "NEARUSDT": {
@@ -83,7 +83,7 @@
       "cooldownUntil": null
     },
     "LTCUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "ATOMUSDT": {
@@ -531,10 +531,23 @@
       "lesson": "SOLUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on SOLUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-07",
+      "time": "01:01:14",
+      "symbol": "LTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "LTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-07T00:45:42.011Z",
+  "lastUpdated": "2026-05-07T01:01:17.387Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
