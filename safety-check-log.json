@@ -1976,7 +1976,39 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 56.8091,
+      "closedAt": "2026-05-07T01:01:14.514Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-07T01:32:44.702Z",
+      "symbol": "BNBUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 647.82,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 647.172,
+      "takeProfit": 643.933,
+      "quantity": 0.15436386650612824,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778117564702",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=58.0, 3/5 bear candles, vol 3.7x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
     }
   ]
 }
