@@ -1821,7 +1821,14 @@
       "takeProfit": 1.25615,
       "side": "sell",
       "quantity": 43.93822393822394,
-      "leverage": 5
+      "leverage": 5,
+      "outcome": "LOSS",
+      "exitPrice": 1.31442,
+      "closedAt": "2026-05-06T21:39:35.205Z",
+      "feesUSD": 0.0683,
+      "pnlPct": "-8.10",
+      "pnlUSD": "-0.92",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-06T13:54:32.444Z",
@@ -1913,6 +1920,31 @@
       "side": "sell",
       "quantity": 212.78982797307404,
       "leverage": 5
+    },
+    {
+      "timestamp": "2026-05-07T00:15:00.590Z",
+      "symbol": "SOLUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 89.008,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 88.919,
+      "takeProfit": 88.474,
+      "quantity": 1.1234945173467554,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778112900590",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=38.6, 3/5 bear candles, vol 1.8x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
     }
   ]
 }
