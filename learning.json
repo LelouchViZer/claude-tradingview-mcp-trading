@@ -1,9 +1,9 @@
 {
-  "totalTrades": 33,
+  "totalTrades": 34,
   "wins": 10,
-  "losses": 23,
-  "winRate": 30.3,
-  "totalPnlUSD": -12.93,
+  "losses": 24,
+  "winRate": 29.4,
+  "totalPnlUSD": -13.85,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -65,8 +65,8 @@
     },
     "DOTUSDT": {
       "wins": 1,
-      "losses": 1,
-      "winRate": 50
+      "losses": 2,
+      "winRate": 33.3
     }
   },
   "symbolCooldowns": {
@@ -103,8 +103,8 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
-      "consecutiveLosses": 1,
-      "cooldownUntil": null
+      "consecutiveLosses": 2,
+      "cooldownUntil": "2026-05-07T00:39:35.206Z"
     }
   },
   "tradeLessons": [
@@ -505,10 +505,23 @@
       "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ADAUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-06",
+      "time": "21:39:35",
+      "symbol": "DOTUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 69.44,
+      "pnlPct": "-8.10",
+      "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOTUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-06T05:54:04.680Z",
+  "lastUpdated": "2026-05-06T21:39:38.169Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -613,9 +626,15 @@
       "time": "08:13:18",
       "coinsOversold": 8,
       "type": "oversold"
+    },
+    {
+      "date": "2026-05-07",
+      "time": "00:14:40",
+      "coinsOverbought": 3,
+      "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-06",
+  "lastDailySummaryDate": "2026-05-07",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
