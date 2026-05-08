@@ -2040,7 +2040,40 @@
         }
       ],
       "allPass": true,
-      "bias": "sell"
+      "bias": "sell",
+      "outcome": "LOSS",
+      "exitPrice": 1.3049,
+      "closedAt": "2026-05-08T00:18:17.543Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-08T01:36:26.311Z",
+      "symbol": "ETHUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 2290.35,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 2283.48,
+      "takeProfit": 2304.09,
+      "quantity": 0.04366144912349641,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778204186311",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=68.6, 3/5 bull candles, vol 1.9x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy",
+      "_earlyExitWarnings": 1
     }
   ]
 }
