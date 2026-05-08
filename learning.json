@@ -1,9 +1,9 @@
 {
-  "totalTrades": 37,
+  "totalTrades": 38,
   "wins": 12,
-  "losses": 25,
-  "winRate": 32.4,
-  "totalPnlUSD": -13.31,
+  "losses": 26,
+  "winRate": 31.6,
+  "totalPnlUSD": -13.73,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -65,8 +65,8 @@
     },
     "DOTUSDT": {
       "wins": 1,
-      "losses": 2,
-      "winRate": 33.3
+      "losses": 3,
+      "winRate": 25
     }
   },
   "symbolCooldowns": {
@@ -103,7 +103,7 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     }
   },
@@ -557,10 +557,23 @@
       "lesson": "BNBUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on BNBUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "00:18:17",
+      "symbol": "DOTUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-07T02:18:57.671Z",
+  "lastUpdated": "2026-05-08T00:18:20.391Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
