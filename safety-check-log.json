@@ -2073,7 +2073,39 @@
       ],
       "allPass": true,
       "bias": "buy",
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 1,
+      "outcome": "LOSS",
+      "exitPrice": 2283.48,
+      "closedAt": "2026-05-08T02:07:06.992Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-08T03:25:19.252Z",
+      "symbol": "LTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 56.24,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 56.4087,
+      "takeProfit": 55.9026,
+      "quantity": 1.7780938833570412,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778210719252",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=54.5, 3/5 bear candles, vol 24.1x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
     }
   ]
 }
