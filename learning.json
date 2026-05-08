@@ -1,9 +1,9 @@
 {
-  "totalTrades": 40,
+  "totalTrades": 41,
   "wins": 12,
-  "losses": 28,
-  "winRate": 30,
-  "totalPnlUSD": -14.57,
+  "losses": 29,
+  "winRate": 29.3,
+  "totalPnlUSD": -14.52,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -60,8 +60,8 @@
     },
     "ADAUSDT": {
       "wins": 1,
-      "losses": 2,
-      "winRate": 33.3
+      "losses": 3,
+      "winRate": 25
     },
     "DOTUSDT": {
       "wins": 1,
@@ -104,7 +104,7 @@
       "cooldownUntil": null
     },
     "ADAUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "DOTUSDT": {
@@ -605,10 +605,23 @@
       "lesson": "LTCUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ LTCUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "14:47:36",
+      "symbol": "ADAUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 68.97,
+      "pnlPct": "0.40",
+      "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-08T03:40:27.448Z",
+  "lastUpdated": "2026-05-08T14:47:39.536Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
