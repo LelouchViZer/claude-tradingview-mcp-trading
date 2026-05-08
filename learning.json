@@ -1,9 +1,9 @@
 {
-  "totalTrades": 38,
+  "totalTrades": 39,
   "wins": 12,
-  "losses": 26,
-  "winRate": 31.6,
-  "totalPnlUSD": -13.73,
+  "losses": 27,
+  "winRate": 30.8,
+  "totalPnlUSD": -14.15,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -67,6 +67,11 @@
       "wins": 1,
       "losses": 3,
       "winRate": 25
+    },
+    "ETHUSDT": {
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0
     }
   },
   "symbolCooldowns": {
@@ -103,6 +108,10 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "ETHUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -570,10 +579,23 @@
       "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "02:07:06",
+      "symbol": "ETHUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "ETHUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-08T00:18:20.391Z",
+  "lastUpdated": "2026-05-08T02:07:09.940Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
