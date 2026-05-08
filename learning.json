@@ -1,9 +1,9 @@
 {
-  "totalTrades": 39,
+  "totalTrades": 40,
   "wins": 12,
-  "losses": 27,
-  "winRate": 30.8,
-  "totalPnlUSD": -14.15,
+  "losses": 28,
+  "winRate": 30,
+  "totalPnlUSD": -14.57,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -50,7 +50,7 @@
     },
     "LTCUSDT": {
       "wins": 0,
-      "losses": 3,
+      "losses": 4,
       "winRate": 0
     },
     "NEARUSDT": {
@@ -88,7 +88,7 @@
       "cooldownUntil": null
     },
     "LTCUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "ATOMUSDT": {
@@ -592,10 +592,23 @@
       "lesson": "ETHUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "03:40:24",
+      "symbol": "LTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "LTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ LTCUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-08T02:07:09.940Z",
+  "lastUpdated": "2026-05-08T03:40:27.448Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -706,6 +719,12 @@
       "time": "00:14:40",
       "coinsOverbought": 3,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "04:11:29",
+      "coinsOversold": 12,
+      "type": "oversold"
     }
   ],
   "lastDailySummaryDate": "2026-05-08",
