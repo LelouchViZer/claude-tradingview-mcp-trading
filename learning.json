@@ -1,9 +1,9 @@
 {
-  "totalTrades": 46,
+  "totalTrades": 47,
   "wins": 15,
-  "losses": 31,
-  "winRate": 32.6,
-  "totalPnlUSD": -11.59,
+  "losses": 32,
+  "winRate": 31.9,
+  "totalPnlUSD": -11.6,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -45,7 +45,7 @@
     },
     "DOGEUSDT": {
       "wins": 0,
-      "losses": 3,
+      "losses": 4,
       "winRate": 0
     },
     "LTCUSDT": {
@@ -89,7 +89,7 @@
       "cooldownUntil": null
     },
     "DOGEUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "LTCUSDT": {
@@ -692,10 +692,23 @@
       "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "14:36:04",
+      "symbol": "DOGEUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "surging",
+      "entryRSI": 0,
+      "pnlPct": "-0.20",
+      "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-09T03:44:22.907Z",
+  "lastUpdated": "2026-05-09T14:36:07.201Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
