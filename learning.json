@@ -1,9 +1,9 @@
 {
-  "totalTrades": 44,
-  "wins": 14,
+  "totalTrades": 45,
+  "wins": 15,
   "losses": 30,
-  "winRate": 31.8,
-  "totalPnlUSD": -11.65,
+  "winRate": 33.3,
+  "totalPnlUSD": -11.17,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -24,9 +24,9 @@
       "winRate": 80
     },
     "SOLUSDT": {
-      "wins": 3,
+      "wins": 4,
       "losses": 3,
-      "winRate": 50
+      "winRate": 57.1
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -666,10 +666,23 @@
       "lesson": "TRXUSDT: Momentum trade failed — Setup invalidated — price above VWAP+EMA20, RSI(3)=85.5 (confirmed 2 scans)",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "03:13:12",
+      "symbol": "SOLUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "SOLUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on SOLUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-09T00:37:44.684Z",
+  "lastUpdated": "2026-05-09T03:13:15.627Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
