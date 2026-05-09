@@ -1,17 +1,17 @@
 {
-  "totalTrades": 45,
+  "totalTrades": 46,
   "wins": 15,
-  "losses": 30,
-  "winRate": 33.3,
-  "totalPnlUSD": -11.17,
+  "losses": 31,
+  "winRate": 32.6,
+  "totalPnlUSD": -11.59,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
   "symbolStats": {
     "ATOMUSDT": {
       "wins": 2,
-      "losses": 4,
-      "winRate": 33.3
+      "losses": 5,
+      "winRate": 28.6
     },
     "BTCUSDT": {
       "wins": 1,
@@ -97,7 +97,7 @@
       "cooldownUntil": null
     },
     "ATOMUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "BTCUSDT": {
@@ -679,10 +679,23 @@
       "lesson": "SOLUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on SOLUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "03:44:19",
+      "symbol": "ATOMUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-09T03:13:15.627Z",
+  "lastUpdated": "2026-05-09T03:44:22.907Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
