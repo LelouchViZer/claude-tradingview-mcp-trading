@@ -1,9 +1,9 @@
 {
-  "totalTrades": 41,
-  "wins": 12,
+  "totalTrades": 42,
+  "wins": 13,
   "losses": 29,
-  "winRate": 29.3,
-  "totalPnlUSD": -14.52,
+  "winRate": 31,
+  "totalPnlUSD": -13.03,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -24,9 +24,9 @@
       "winRate": 75
     },
     "SOLUSDT": {
-      "wins": 2,
+      "wins": 3,
       "losses": 3,
-      "winRate": 40
+      "winRate": 50
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -618,10 +618,23 @@
       "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-08",
+      "time": "17:38:17",
+      "symbol": "SOLUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 8.26,
+      "pnlPct": "14.40",
+      "lesson": "SOLUSDT: ✅ Full TP hit +15.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on SOLUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-08T14:47:39.536Z",
+  "lastUpdated": "2026-05-08T17:38:20.729Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -738,9 +751,15 @@
       "time": "04:11:29",
       "coinsOversold": 12,
       "type": "oversold"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "00:06:36",
+      "coinsOverbought": 12,
+      "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-08",
+  "lastDailySummaryDate": "2026-05-09",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
