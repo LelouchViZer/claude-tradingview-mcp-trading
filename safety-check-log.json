@@ -2204,7 +2204,178 @@
       "takeProfit": 89.9829,
       "side": "buy",
       "quantity": 0.5906458185481103,
-      "leverage": 5
+      "leverage": 5,
+      "outcome": "WIN",
+      "exitPrice": 89.9829,
+      "closedAt": "2026-05-08T17:38:17.828Z",
+      "feesUSD": 0.0619,
+      "pnlPct": "14.40",
+      "pnlUSD": "1.49",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-08T20:13:38.248Z",
+      "symbol": "BNBUSDT",
+      "timeframe": "4H",
+      "price": 632.38,
+      "indicators": {
+        "ema8": 628.3305506957818,
+        "ema20": 622.6622915303908,
+        "ema50": 618.4665009160525,
+        "vwap": 640.4602164660333,
+        "rsi3": 0,
+        "rsi14": 53.65634237244566,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 0.86
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) below 35 — oversold in range",
+          "required": "< 35",
+          "actual": "0.00",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "1.26%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 5.66,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778271218376",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 4
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 3,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": false,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 0,
+        "reason": "4H conditions met — entering (15m context: 3/4)"
+      },
+      "confidence": {
+        "finalSize": 5.66,
+        "confidencePct": 71,
+        "score": 71.1,
+        "breakdown": {
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "1.26% from VWAP → 5.5pts",
+          "symbolWR": "75% on 4 trades → 11.3pts",
+          "overallWR": "31% overall → 3.1pts"
+        },
+        "dynamicLeverage": 10
+      },
+      "stopLoss": 633.012,
+      "takeProfit": 651.351,
+      "side": "buy",
+      "quantity": 0.08950314684208863,
+      "leverage": 10
+    },
+    {
+      "timestamp": "2026-05-08T20:13:40.428Z",
+      "symbol": "DOGEUSDT",
+      "timeframe": "4H",
+      "price": 0.10851,
+      "indicators": {
+        "ema8": 0.10931571599261451,
+        "ema20": 0.1056620576414975,
+        "ema50": 0.10174807948978332,
+        "vwap": 0.10728706305735392,
+        "rsi3": 0,
+        "rsi14": 65.58265582655827,
+        "volumeTrend": {
+          "trend": "surging",
+          "ratio": 1.33
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "surging"
+      },
+      "conditions": [
+        {
+          "label": "EMA(20) > EMA(50) — uptrend confirmed",
+          "required": "> 0.10",
+          "actual": "0.11",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP (near mean)",
+          "required": "< 2%",
+          "actual": "1.14%",
+          "pass": true
+        },
+        {
+          "label": "RSI(3) below 35 — pullback entry",
+          "required": "< 35",
+          "actual": "0.00",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 5.66,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778271220551",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 5
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 3,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": false,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 24.637681159419913,
+        "reason": "4H conditions met — entering (15m context: 3/4)"
+      },
+      "confidence": {
+        "finalSize": 5.66,
+        "confidencePct": 61,
+        "score": 60.8,
+        "breakdown": {
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "1.14% from VWAP → 6.5pts",
+          "symbolWR": "0% on 3 trades → 0.0pts",
+          "overallWR": "31% overall → 3.1pts"
+        },
+        "dynamicLeverage": 10
+      },
+      "stopLoss": 0.106882,
+      "takeProfit": 0.111765,
+      "side": "buy",
+      "quantity": 521.610911436734,
+      "leverage": 10
     }
   ]
 }
