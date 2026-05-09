@@ -1,9 +1,9 @@
 {
-  "totalTrades": 42,
-  "wins": 13,
+  "totalTrades": 43,
+  "wins": 14,
   "losses": 29,
-  "winRate": 31,
-  "totalPnlUSD": -13.03,
+  "winRate": 32.6,
+  "totalPnlUSD": -11.4,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -19,9 +19,9 @@
       "winRate": 50
     },
     "BNBUSDT": {
-      "wins": 3,
+      "wins": 4,
       "losses": 1,
-      "winRate": 75
+      "winRate": 80
     },
     "SOLUSDT": {
       "wins": 3,
@@ -631,10 +631,23 @@
       "lesson": "SOLUSDT: ✅ Full TP hit +15.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on SOLUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "00:37:41",
+      "symbol": "BNBUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 0,
+      "pnlPct": "28.80",
+      "lesson": "BNBUSDT: ✅ Full TP hit +30.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on BNBUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-08T17:38:20.729Z",
+  "lastUpdated": "2026-05-09T00:37:44.684Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
