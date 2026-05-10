@@ -1,9 +1,9 @@
 {
-  "totalTrades": 48,
+  "totalTrades": 49,
   "wins": 16,
-  "losses": 32,
-  "winRate": 33.3,
-  "totalPnlUSD": -11.4,
+  "losses": 33,
+  "winRate": 32.7,
+  "totalPnlUSD": -11.82,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -55,8 +55,8 @@
     },
     "NEARUSDT": {
       "wins": 1,
-      "losses": 0,
-      "winRate": 100
+      "losses": 1,
+      "winRate": 50
     },
     "ADAUSDT": {
       "wins": 1,
@@ -121,6 +121,10 @@
       "cooldownUntil": null
     },
     "TRXUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
+    },
+    "NEARUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
     }
@@ -718,10 +722,23 @@
       "lesson": "DOTUSDT: Early exit captured only 11% of TP potential (1.6% vs 15.0% target) — exited too early",
       "adaptation": "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-10",
+      "time": "00:56:59",
+      "symbol": "NEARUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "NEARUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-09T14:36:07.201Z",
+  "lastUpdated": "2026-05-10T00:57:01.928Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
