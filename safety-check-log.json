@@ -2600,7 +2600,40 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 1.55532,
+      "closedAt": "2026-05-10T00:56:59.099Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-10T01:28:27.959Z",
+      "symbol": "SOLUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 93.127,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 93.127,
+      "takeProfit": 92.5682,
+      "quantity": 1.0738024418267527,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778376507959",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=30.0, 3/5 bear candles, vol 3.3x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell",
+      "_earlyExitWarnings": 1
     }
   ]
 }
