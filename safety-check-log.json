@@ -2750,7 +2750,14 @@
         }
       ],
       "allPass": true,
-      "bias": "sell"
+      "bias": "sell",
+      "outcome": "LOSS",
+      "exitPrice": 2326.62,
+      "closedAt": "2026-05-10T06:39:06.466Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
     }
   ]
 }
