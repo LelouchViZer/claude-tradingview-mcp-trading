@@ -1,9 +1,9 @@
 {
-  "totalTrades": 49,
+  "totalTrades": 50,
   "wins": 16,
-  "losses": 33,
-  "winRate": 32.7,
-  "totalPnlUSD": -11.82,
+  "losses": 34,
+  "winRate": 32,
+  "totalPnlUSD": -11.94,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -25,8 +25,8 @@
     },
     "SOLUSDT": {
       "wins": 4,
-      "losses": 3,
-      "winRate": 57.1
+      "losses": 4,
+      "winRate": 50
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -81,7 +81,7 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "BNBUSDT": {
@@ -735,10 +735,23 @@
       "lesson": "NEARUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-10",
+      "time": "03:16:52",
+      "symbol": "SOLUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-1.20",
+      "lesson": "SOLUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-10T00:57:01.928Z",
+  "lastUpdated": "2026-05-10T03:16:55.158Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -861,6 +874,12 @@
       "time": "00:06:36",
       "coinsOverbought": 12,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-10",
+      "time": "04:03:35",
+      "coinsOversold": 3,
+      "type": "oversold"
     }
   ],
   "lastDailySummaryDate": "2026-05-10",
