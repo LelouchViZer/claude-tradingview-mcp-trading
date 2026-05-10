@@ -2567,7 +2567,40 @@
       "side": "buy",
       "quantity": 45.817774458551156,
       "leverage": 5,
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 2,
+      "outcome": "EARLY_EXIT_PROFIT",
+      "exitPrice": 1.345,
+      "closedAt": "2026-05-09T23:39:14.542Z",
+      "exitReason": "Setup invalidated — price below VWAP+EMA20, RSI(3)=26.1 (confirmed 2 scans)",
+      "feesUSD": 0.0736,
+      "pnlPct": "1.64",
+      "pnlUSD": "0.20",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-10T00:41:54.293Z",
+      "symbol": "NEARUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 1.56,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 1.55532,
+      "takeProfit": 1.56936,
+      "quantity": 64.1025641025641,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778373714293",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=50.0, 3/5 bull candles, vol 1.6x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
     }
   ]
 }
