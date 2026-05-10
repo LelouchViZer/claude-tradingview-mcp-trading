@@ -1,9 +1,9 @@
 {
-  "totalTrades": 47,
-  "wins": 15,
+  "totalTrades": 48,
+  "wins": 16,
   "losses": 32,
-  "winRate": 31.9,
-  "totalPnlUSD": -11.6,
+  "winRate": 33.3,
+  "totalPnlUSD": -11.4,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -64,9 +64,9 @@
       "winRate": 25
     },
     "DOTUSDT": {
-      "wins": 1,
+      "wins": 2,
       "losses": 3,
-      "winRate": 25
+      "winRate": 40
     },
     "ETHUSDT": {
       "wins": 0,
@@ -113,7 +113,7 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "ETHUSDT": {
@@ -705,6 +705,19 @@
       "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-09",
+      "time": "23:39:14",
+      "symbol": "DOTUSDT",
+      "outcome": "EARLY_EXIT_PROFIT",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 26.09,
+      "pnlPct": "1.64",
+      "lesson": "DOTUSDT: Early exit captured only 11% of TP potential (1.6% vs 15.0% target) — exited too early",
+      "adaptation": "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
@@ -833,7 +846,7 @@
       "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-09",
+  "lastDailySummaryDate": "2026-05-10",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
