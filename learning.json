@@ -1,9 +1,9 @@
 {
-  "totalTrades": 55,
+  "totalTrades": 56,
   "wins": 17,
-  "losses": 38,
-  "winRate": 30.9,
-  "totalPnlUSD": -14,
+  "losses": 39,
+  "winRate": 30.4,
+  "totalPnlUSD": -14.42,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -45,7 +45,7 @@
     },
     "DOGEUSDT": {
       "wins": 0,
-      "losses": 4,
+      "losses": 5,
       "winRate": 0
     },
     "LTCUSDT": {
@@ -89,7 +89,7 @@
       "cooldownUntil": null
     },
     "DOGEUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "LTCUSDT": {
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "11:28:00",
-      "symbol": "ATOMUSDT",
-      "outcome": "EARLY_EXIT_PROFIT",
-      "regime": "standard",
-      "pnlPct": "2.49",
-      "lesson": "ATOMUSDT: Early exit with small profit — setup invalidated before full TP. Better than a loss but the small gain (+2.49%) barely covers fees at this leverage.",
-      "adaptation": "Early exits under +3% net are marginal — fees erode them fast. Consider tightening entry criteria to only take trades with clear room to full TP.",
-      "severity": "info"
-    },
     {
       "date": "2026-04-29",
       "time": "13:17:00",
@@ -765,10 +754,23 @@
       "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-11",
+      "time": "06:59:14",
+      "symbol": "DOGEUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOGEUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-11T06:28:09.348Z",
+  "lastUpdated": "2026-05-11T06:59:17.814Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -897,6 +899,12 @@
       "time": "04:03:35",
       "coinsOversold": 3,
       "type": "oversold"
+    },
+    {
+      "date": "2026-05-11",
+      "time": "12:09:47",
+      "coinsOverbought": 6,
+      "type": "overbought"
     }
   ],
   "lastDailySummaryDate": "2026-05-11",
