@@ -3000,6 +3000,38 @@
         }
       ],
       "allPass": true,
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 0.280057,
+      "closedAt": "2026-05-11T06:28:06.273Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-11T06:44:06.061Z",
+      "symbol": "DOGEUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 0.11075,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 0.110418,
+      "takeProfit": 0.111414,
+      "quantity": 902.9345372460497,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778481846061",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=46.8, 3/5 bull candles, vol 1.7x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
       "bias": "buy"
     }
   ]
