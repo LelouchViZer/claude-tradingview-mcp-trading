@@ -3319,7 +3319,14 @@
       "takeProfit": 0.272182,
       "side": "sell",
       "quantity": 169.99287241625086,
-      "leverage": 5
+      "leverage": 5,
+      "outcome": "WIN",
+      "exitPrice": 0.272182,
+      "closedAt": "2026-05-12T14:01:29.029Z",
+      "feesUSD": 0.0572,
+      "pnlPct": "14.40",
+      "pnlUSD": "1.37",
+      "_lessonRecorded": true
     }
   ]
 }
