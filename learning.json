@@ -1,9 +1,9 @@
 {
-  "totalTrades": 61,
-  "wins": 18,
+  "totalTrades": 62,
+  "wins": 19,
   "losses": 43,
-  "winRate": 29.5,
-  "totalPnlUSD": -14.32,
+  "winRate": 30.6,
+  "totalPnlUSD": -12.95,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -64,9 +64,9 @@
       "winRate": 28.6
     },
     "DOTUSDT": {
-      "wins": 2,
+      "wins": 3,
       "losses": 5,
-      "winRate": 28.6
+      "winRate": 37.5
     },
     "ETHUSDT": {
       "wins": 0,
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "11:13:00",
-      "symbol": "DOGEUSDT",
-      "outcome": "LOSS",
-      "regime": "extreme_resistance",
-      "pnlPct": "-3.00",
-      "lesson": "DOGEUSDT: SL hit. Trade also had the SL/TP precision bug (toFixed(2) rounding $0.10 prices to entry price). Bug now fixed with dynamic decimal places. Underlying setup also weak — extreme_resistance regime during broad bull move.",
-      "adaptation": "Price precision bug fixed. Also: extreme_resistance regime entries during a market-wide bull run are high risk — the 'resistance' breaks easily in euphoria conditions.",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-03",
       "time": "08:51:16",
@@ -777,10 +766,23 @@
       "lesson": "ADAUSDT: ✅ Full TP hit +15.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on ADAUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-12",
+      "time": "14:32:34",
+      "symbol": "DOTUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 85.92,
+      "pnlPct": "28.80",
+      "lesson": "DOTUSDT: ✅ Full TP hit +30.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on DOTUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-12T14:01:32.390Z",
+  "lastUpdated": "2026-05-12T14:32:38.372Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
