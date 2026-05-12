@@ -1,9 +1,9 @@
 {
-  "totalTrades": 57,
+  "totalTrades": 58,
   "wins": 17,
-  "losses": 40,
-  "winRate": 29.8,
-  "totalPnlUSD": -14.43,
+  "losses": 41,
+  "winRate": 29.3,
+  "totalPnlUSD": -14.85,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -15,8 +15,8 @@
     },
     "BTCUSDT": {
       "wins": 1,
-      "losses": 1,
-      "winRate": 50
+      "losses": 2,
+      "winRate": 33.3
     },
     "BNBUSDT": {
       "wins": 4,
@@ -101,8 +101,8 @@
       "cooldownUntil": null
     },
     "BTCUSDT": {
-      "consecutiveLosses": 1,
-      "cooldownUntil": null
+      "consecutiveLosses": 2,
+      "cooldownUntil": "2026-05-12T03:35:09.012Z"
     },
     "LINKUSDT": {
       "consecutiveLosses": 0,
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "13:17:00",
-      "symbol": "AVAXUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "pnlPct": "-2.99",
-      "lesson": "AVAXUSDT: SL hit same minute as SOLUSDT. Two highly correlated altcoins entered simultaneously in same direction = double exposure to the same market move. Both lost together.",
-      "adaptation": "RULE: Do not hold more than 1 open trade in highly correlated altcoins (SOL/AVAX/ATOM/LINK are all correlated in bull moves). Stagger entries or pick only the strongest signal.",
-      "severity": "critical"
-    },
     {
       "date": "2026-04-29",
       "time": "16:11:00",
@@ -769,10 +758,23 @@
       "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOTUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-12",
+      "time": "00:35:09",
+      "symbol": "BTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ BTCUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-11T17:51:46.676Z",
+  "lastUpdated": "2026-05-12T00:35:12.033Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
