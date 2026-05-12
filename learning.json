@@ -1,9 +1,9 @@
 {
-  "totalTrades": 56,
+  "totalTrades": 57,
   "wins": 17,
-  "losses": 39,
-  "winRate": 30.4,
-  "totalPnlUSD": -14.42,
+  "losses": 40,
+  "winRate": 29.8,
+  "totalPnlUSD": -14.43,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -65,8 +65,8 @@
     },
     "DOTUSDT": {
       "wins": 2,
-      "losses": 4,
-      "winRate": 33.3
+      "losses": 5,
+      "winRate": 28.6
     },
     "ETHUSDT": {
       "wins": 0,
@@ -113,7 +113,7 @@
       "cooldownUntil": null
     },
     "DOTUSDT": {
-      "consecutiveLosses": 1,
+      "consecutiveLosses": 0,
       "cooldownUntil": null
     },
     "ETHUSDT": {
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "13:17:00",
-      "symbol": "SOLUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "pnlPct": "-3.00",
-      "lesson": "SOLUSDT: SL hit — momentum ran against the short. Market was in broad bull move on Apr 29 (capitulation event: 13 coins overbought on Apr 28). Shorting into an established uptrend.",
-      "adaptation": "RULE: During/after a capitulation event (10+ coins overbought), avoid new SHORT entries for 6 hours. Wait for actual reversal confirmation.",
-      "severity": "warning"
-    },
     {
       "date": "2026-04-29",
       "time": "13:17:00",
@@ -767,10 +756,23 @@
       "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOGEUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-11",
+      "time": "17:51:43",
+      "symbol": "DOTUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "normal",
+      "entryRSI": 100,
+      "pnlPct": "-0.20",
+      "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOTUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-11T06:59:17.814Z",
+  "lastUpdated": "2026-05-11T17:51:46.676Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -905,9 +907,15 @@
       "time": "12:09:47",
       "coinsOverbought": 6,
       "type": "overbought"
+    },
+    {
+      "date": "2026-05-12",
+      "time": "00:04:04",
+      "coinsOverbought": 3,
+      "type": "overbought"
     }
   ],
-  "lastDailySummaryDate": "2026-05-11",
+  "lastDailySummaryDate": "2026-05-12",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
