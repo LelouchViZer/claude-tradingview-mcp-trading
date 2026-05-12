@@ -1,9 +1,9 @@
 {
-  "totalTrades": 58,
+  "totalTrades": 59,
   "wins": 17,
-  "losses": 41,
-  "winRate": 29.3,
-  "totalPnlUSD": -14.85,
+  "losses": 42,
+  "winRate": 28.8,
+  "totalPnlUSD": -15.27,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -25,8 +25,8 @@
     },
     "SOLUSDT": {
       "wins": 4,
-      "losses": 4,
-      "winRate": 50
+      "losses": 5,
+      "winRate": 44.4
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -81,8 +81,8 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 1,
-      "cooldownUntil": null
+      "consecutiveLosses": 2,
+      "cooldownUntil": "2026-05-12T03:50:42.550Z"
     },
     "BNBUSDT": {
       "consecutiveLosses": 0,
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "16:11:00",
-      "symbol": "LINKUSDT",
-      "outcome": "LOSS",
-      "regime": "scalp",
-      "pnlPct": "0.00",
-      "lesson": "LINKUSDT: Breakeven scalp — trailing stop moved to entry and triggered. Capital protected.",
-      "adaptation": "Trailing stop to breakeven is working correctly. This is the correct outcome for a setup that moved in our favor briefly then reversed.",
-      "severity": "info"
-    },
     {
       "date": "2026-04-29",
       "time": "08:06:00",
@@ -771,10 +760,23 @@
       "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ BTCUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-12",
+      "time": "00:50:42",
+      "symbol": "SOLUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "SOLUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ SOLUSDT on 3hr cooldown (2 consecutive losses)",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-12T00:35:12.033Z",
+  "lastUpdated": "2026-05-12T00:50:46.324Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
