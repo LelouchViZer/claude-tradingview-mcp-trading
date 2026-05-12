@@ -2944,7 +2944,14 @@
       "side": "sell",
       "quantity": 38.61818181818182,
       "leverage": 10,
-      "_earlyExitWarnings": 0
+      "_earlyExitWarnings": 0,
+      "outcome": "LOSS",
+      "exitPrice": 1.37363,
+      "closedAt": "2026-05-11T17:51:43.717Z",
+      "feesUSD": 0.0637,
+      "pnlPct": "-0.20",
+      "pnlUSD": "-0.01",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-11T03:06:16.752Z",
@@ -3041,6 +3048,31 @@
       "pnlPct": "-4.20",
       "pnlUSD": "-0.42",
       "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-12T00:19:56.452Z",
+      "symbol": "BTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 81992.8,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 81746.8,
+      "takeProfit": 82484.8,
+      "quantity": 0.0012196192836444175,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778545196452",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=71.4, 3/5 bull candles, vol 2.0x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
     }
   ]
 }
