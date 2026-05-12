@@ -3234,7 +3234,14 @@
       "takeProfit": 1.31823,
       "side": "sell",
       "quantity": 35.09933774834437,
-      "leverage": 10
+      "leverage": 10,
+      "outcome": "WIN",
+      "exitPrice": 1.31823,
+      "closedAt": "2026-05-12T14:32:34.795Z",
+      "feesUSD": 0.0572,
+      "pnlPct": "28.80",
+      "pnlUSD": "1.37",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-12T12:13:04.626Z",
@@ -3327,6 +3334,177 @@
       "pnlPct": "14.40",
       "pnlUSD": "1.37",
       "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-12T18:56:42.195Z",
+      "symbol": "DOTUSDT",
+      "timeframe": "4H",
+      "price": 1.355,
+      "indicators": {
+        "ema8": 1.3154379576080977,
+        "ema20": 1.317043441927387,
+        "ema50": 1.35651524611718,
+        "vwap": 1.3314105711067987,
+        "rsi3": 87.0370370370372,
+        "rsi14": 54.04040404040405,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 1.07
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "EMA(20) < EMA(50) — downtrend confirmed",
+          "required": "< 1.36",
+          "actual": "1.32",
+          "pass": true
+        },
+        {
+          "label": "RSI(3) overbought (> 65)",
+          "required": "> 65",
+          "actual": "87.04",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "1.77%",
+          "pass": true
+        },
+        {
+          "label": "Volume NOT surging (momentum must be fading)",
+          "required": "≠ surging",
+          "actual": "normal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bearish",
+      "tradeSize": 11.37,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778612202338",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 5
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 2,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": false,
+          "confirmCandle": true,
+          "emaAligned": false
+        },
+        "entryTF": "15m",
+        "rsi": 100,
+        "reason": "4H conditions met — entering (15m context: 2/4)"
+      },
+      "confidence": {
+        "finalSize": 11.37,
+        "confidencePct": 44,
+        "score": 43.6,
+        "breakdown": {
+          "lowerTF": "2/4 checks → 17.5pts",
+          "rsi": "depth 63% → 15.7pts",
+          "vwap": "1.77% from VWAP → 1.7pts",
+          "symbolWR": "37.5% on 8 trades → 5.6pts",
+          "overallWR": "30.6% overall → 3.1pts"
+        },
+        "dynamicLeverage": 5
+      },
+      "stopLoss": 1.355,
+      "takeProfit": 1.31435,
+      "side": "sell",
+      "quantity": 41.95571955719557,
+      "leverage": 5
+    },
+    {
+      "timestamp": "2026-05-12T20:14:15.838Z",
+      "symbol": "ADAUSDT",
+      "timeframe": "4H",
+      "price": 0.2734,
+      "indicators": {
+        "ema8": 0.2741787723272629,
+        "ema20": 0.2751357990265965,
+        "ema50": 0.2747974164753019,
+        "vwap": 0.27359357876124135,
+        "rsi3": 0,
+        "rsi14": 37.63157894736842,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 0.99
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) below 35 — oversold in range",
+          "required": "< 35",
+          "actual": "0.00",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "0.07%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 5.68,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778616855962",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 6
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 4,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": true,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 47.61904761904661,
+        "reason": "4H conditions met — entering (15m context: 4/4)"
+      },
+      "confidence": {
+        "finalSize": 5.68,
+        "confidencePct": 82,
+        "score": 81.8,
+        "breakdown": {
+          "lowerTF": "4/4 checks → 35.0pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "0.07% from VWAP → 14.5pts",
+          "symbolWR": "28.6% on 7 trades → 4.3pts",
+          "overallWR": "30.6% overall → 3.1pts"
+        },
+        "dynamicLeverage": 10
+      },
+      "stopLoss": 0.269299,
+      "takeProfit": 0.281602,
+      "side": "buy",
+      "quantity": 207.7542062911485,
+      "leverage": 10,
+      "_earlyExitWarnings": 1
     }
   ]
 }
