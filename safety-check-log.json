@@ -3072,6 +3072,63 @@
         }
       ],
       "allPass": true,
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 81746.8,
+      "closedAt": "2026-05-12T00:35:09.011Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-12T00:35:31.712Z",
+      "symbol": "ETHUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 2340.9,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 2333.88,
+      "takeProfit": 2354.95,
+      "quantity": 0.04271861249946601,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778546131712",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=70.1, 3/5 bull candles, vol 1.3x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
+    },
+    {
+      "timestamp": "2026-05-12T00:35:33.043Z",
+      "symbol": "SOLUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 98.102,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 97.8077,
+      "takeProfit": 98.6906,
+      "quantity": 1.019347210046686,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778546133043",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=44.4, 4/5 bull candles, vol 5.0x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
       "bias": "buy"
     }
   ]
