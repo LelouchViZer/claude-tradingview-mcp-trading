@@ -1,9 +1,9 @@
 {
-  "totalTrades": 59,
+  "totalTrades": 60,
   "wins": 17,
-  "losses": 42,
-  "winRate": 28.8,
-  "totalPnlUSD": -15.27,
+  "losses": 43,
+  "winRate": 28.3,
+  "totalPnlUSD": -15.69,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -70,7 +70,7 @@
     },
     "ETHUSDT": {
       "wins": 0,
-      "losses": 2,
+      "losses": 3,
       "winRate": 0
     },
     "TRXUSDT": {
@@ -81,8 +81,8 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-05-12T03:50:42.550Z"
+      "consecutiveLosses": 0,
+      "cooldownUntil": null
     },
     "BNBUSDT": {
       "consecutiveLosses": 0,
@@ -101,8 +101,8 @@
       "cooldownUntil": null
     },
     "BTCUSDT": {
-      "consecutiveLosses": 2,
-      "cooldownUntil": "2026-05-12T03:35:09.012Z"
+      "consecutiveLosses": 0,
+      "cooldownUntil": null
     },
     "LINKUSDT": {
       "consecutiveLosses": 0,
@@ -117,7 +117,7 @@
       "cooldownUntil": null
     },
     "ETHUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "TRXUSDT": {
@@ -130,17 +130,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-04-29",
-      "time": "08:06:00",
-      "symbol": "XAUTUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "pnlPct": "0.00",
-      "lesson": "XAUTUSDT: Breakeven hit — trailing stop protected capital. Gold (XAUT) behaves differently from crypto — it does not follow the same RSI/VWAP mean-reversion cycles. During crypto bull runs, gold tends to consolidate or also rally separately.",
-      "adaptation": "CONSIDER: Remove XAUTUSDT from watchlist or reduce position size. Gold's correlation to crypto is unreliable for this strategy — RSI overbought in XAUT means different things than in crypto.",
-      "severity": "warning"
-    },
     {
       "date": "2026-04-29",
       "time": "08:06:00",
@@ -773,10 +762,23 @@
       "lesson": "SOLUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ SOLUSDT on 3hr cooldown (2 consecutive losses)",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-12",
+      "time": "01:06:14",
+      "symbol": "ETHUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "ETHUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-12T00:50:46.324Z",
+  "lastUpdated": "2026-05-12T01:06:17.993Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
