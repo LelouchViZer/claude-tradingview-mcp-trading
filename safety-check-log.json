@@ -3602,7 +3602,99 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "WIN",
+      "exitPrice": 1.65044,
+      "closedAt": "2026-05-13T02:11:17.491Z",
+      "feesUSD": 0.12,
+      "pnlPct": "4.80",
+      "pnlUSD": "0.48",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-13T04:46:33.205Z",
+      "symbol": "ADAUSDT",
+      "timeframe": "4H",
+      "price": 0.275,
+      "indicators": {
+        "ema8": 0.27468735833690394,
+        "ema20": 0.27552046363082844,
+        "ema50": 0.2749138193375244,
+        "vwap": 0.2731130378467749,
+        "rsi3": 84.72222222222233,
+        "rsi14": 39.65087281795515,
+        "volumeTrend": {
+          "trend": "normal",
+          "ratio": 0.71
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "normal"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) above 65 — overbought in range",
+          "required": "> 65",
+          "actual": "84.72",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "0.69%",
+          "pass": true
+        },
+        {
+          "label": "Volume NOT surging (need fading momentum to short)",
+          "required": "≠ surging",
+          "actual": "normal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bearish",
+      "tradeSize": 11.11,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778647593329",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 3
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 2,
+        "checks": {
+          "rsiFavourable": false,
+          "nearVwap": true,
+          "confirmCandle": false,
+          "emaAligned": true
+        },
+        "entryTF": "15m",
+        "rsi": 40.000000000000746,
+        "reason": "4H conditions met — entering (15m context: 2/4)"
+      },
+      "confidence": {
+        "finalSize": 11.11,
+        "confidencePct": 48,
+        "score": 48.2,
+        "breakdown": {
+          "lowerTF": "2/4 checks → 17.5pts",
+          "rsi": "depth 56% → 14.1pts",
+          "vwap": "0.69% from VWAP → 9.8pts",
+          "symbolWR": "25% on 8 trades → 3.8pts",
+          "overallWR": "30.3% overall → 3.0pts"
+        },
+        "dynamicLeverage": 5
+      },
+      "stopLoss": 0.279125,
+      "takeProfit": 0.26675,
+      "side": "sell",
+      "quantity": 201.99999999999997,
+      "leverage": 5
     }
   ]
 }
