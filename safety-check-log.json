@@ -3702,7 +3702,94 @@
       "side": "sell",
       "quantity": 201.99999999999997,
       "leverage": 5,
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 2,
+      "outcome": "EARLY_EXIT_LOSS",
+      "exitPrice": 0.277,
+      "closedAt": "2026-05-13T09:56:34.788Z",
+      "exitReason": "Setup invalidated — price above VWAP+EMA20, RSI(3)=70.1 (confirmed 2 scans)",
+      "feesUSD": 0.0667,
+      "pnlPct": "-4.24",
+      "pnlUSD": "-0.47",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-13T17:57:11.869Z",
+      "symbol": "ADAUSDT",
+      "timeframe": "4H",
+      "price": 0.27,
+      "indicators": {
+        "ema8": 0.27478858375394455,
+        "ema20": 0.275890539974501,
+        "ema50": 0.27497854845072256,
+        "vwap": 0.26882297306227043,
+        "rsi3": 0,
+        "rsi14": 36.36363636363643,
+        "volumeTrend": {
+          "trend": "exhaustion",
+          "ratio": 0.49
+        }
+      },
+      "marketRegime": {
+        "mode": "standard",
+        "streak": 0,
+        "volumeTrend": "exhaustion"
+      },
+      "conditions": [
+        {
+          "label": "RSI(3) below 35 — oversold in range",
+          "required": "< 35",
+          "actual": "0.00",
+          "pass": true
+        },
+        {
+          "label": "Price within 2% of VWAP",
+          "required": "< 2%",
+          "actual": "0.44%",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "bullish",
+      "tradeSize": 5.26,
+      "orderPlaced": true,
+      "orderId": "PAPER-1778695031994",
+      "paperTrading": true,
+      "limits": {
+        "maxTradeSizeUSD": 15,
+        "maxTradesPerDay": 15,
+        "tradesToday": 4
+      },
+      "entryConfirmation": {
+        "confirmed": true,
+        "passCount": 3,
+        "checks": {
+          "rsiFavourable": true,
+          "nearVwap": true,
+          "confirmCandle": true,
+          "emaAligned": false
+        },
+        "entryTF": "15m",
+        "rsi": 0,
+        "reason": "4H conditions met — entering (15m context: 3/4)"
+      },
+      "confidence": {
+        "finalSize": 5.26,
+        "confidencePct": 69,
+        "score": 69.2,
+        "breakdown": {
+          "lowerTF": "3/4 checks → 26.3pts",
+          "rsi": "depth 100% → 25.0pts",
+          "vwap": "0.44% from VWAP → 11.7pts",
+          "symbolWR": "22.2% on 9 trades → 3.3pts",
+          "overallWR": "29.4% overall → 2.9pts"
+        },
+        "dynamicLeverage": 10
+      },
+      "stopLoss": 0.26595,
+      "takeProfit": 0.2781,
+      "side": "buy",
+      "quantity": 194.81481481481478,
+      "leverage": 10
     }
   ]
 }
