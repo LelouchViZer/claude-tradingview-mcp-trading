@@ -1,9 +1,9 @@
 {
-  "totalTrades": 64,
+  "totalTrades": 65,
   "wins": 19,
-  "losses": 45,
-  "winRate": 29.7,
-  "totalPnlUSD": -13.4,
+  "losses": 46,
+  "winRate": 29.2,
+  "totalPnlUSD": -13.82,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -30,7 +30,7 @@
     },
     "AVAXUSDT": {
       "wins": 0,
-      "losses": 1,
+      "losses": 2,
       "winRate": 0
     },
     "LINKUSDT": {
@@ -127,22 +127,13 @@
     "NEARUSDT": {
       "consecutiveLosses": 1,
       "cooldownUntil": null
+    },
+    "AVAXUSDT": {
+      "consecutiveLosses": 1,
+      "cooldownUntil": null
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-03",
-      "time": "11:42:03",
-      "symbol": "DOGEUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "unknown",
-      "entryRSI": null,
-      "pnlPct": "-4.20",
-      "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-03",
       "time": "11:42:06",
@@ -779,10 +770,23 @@
       "lesson": "DOTUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-13",
+      "time": "01:40:09",
+      "symbol": "AVAXUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "AVAXUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-13T01:24:38.236Z",
+  "lastUpdated": "2026-05-13T01:40:13.716Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
