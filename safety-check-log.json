@@ -3425,7 +3425,14 @@
       "side": "sell",
       "quantity": 41.95571955719557,
       "leverage": 5,
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 1,
+      "outcome": "LOSS",
+      "exitPrice": 1.355,
+      "closedAt": "2026-05-13T01:24:35.344Z",
+      "feesUSD": 0.0682,
+      "pnlPct": "-0.60",
+      "pnlUSD": "-0.07",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-12T20:14:15.838Z",
@@ -3531,6 +3538,31 @@
       "orderId": "SCALP-1778630850029",
       "paperTrading": true,
       "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=40.5, 4/5 bear candles, vol 4.5x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
+    },
+    {
+      "timestamp": "2026-05-13T01:25:03.369Z",
+      "symbol": "AVAXUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 9.842,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 9.87153,
+      "takeProfit": 9.78295,
+      "quantity": 10.16053647632595,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778635503369",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=52.0, 3/5 bear candles, vol 2.0x avg",
       "conditions": [
         {
           "label": "Scalp signal",
