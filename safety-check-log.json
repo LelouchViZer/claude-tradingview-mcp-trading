@@ -3545,7 +3545,14 @@
         }
       ],
       "allPass": true,
-      "bias": "sell"
+      "bias": "sell",
+      "outcome": "LOSS",
+      "exitPrice": 0.350218,
+      "closedAt": "2026-05-13T09:10:01.294Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-13T01:25:03.369Z",
@@ -3694,7 +3701,8 @@
       "takeProfit": 0.26675,
       "side": "sell",
       "quantity": 201.99999999999997,
-      "leverage": 5
+      "leverage": 5,
+      "_earlyExitWarnings": 1
     }
   ]
 }
