@@ -1,9 +1,9 @@
 {
-  "totalTrades": 69,
+  "totalTrades": 70,
   "wins": 20,
-  "losses": 49,
-  "winRate": 29,
-  "totalPnlUSD": -15.08,
+  "losses": 50,
+  "winRate": 28.6,
+  "totalPnlUSD": -15.5,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -25,8 +25,8 @@
     },
     "SOLUSDT": {
       "wins": 4,
-      "losses": 5,
-      "winRate": 44.4
+      "losses": 6,
+      "winRate": 40
     },
     "AVAXUSDT": {
       "wins": 0,
@@ -81,7 +81,7 @@
   },
   "symbolCooldowns": {
     "SOLUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "BNBUSDT": {
@@ -134,19 +134,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-04",
-      "time": "03:28:19",
-      "symbol": "ADAUSDT",
-      "outcome": "WIN",
-      "regime": "standard",
-      "volumeAtEntry": "unknown",
-      "entryRSI": null,
-      "pnlPct": "4.80",
-      "lesson": "ADAUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
-      "adaptation": "Reinforce: standard entries work well on ADAUSDT",
-      "severity": "info"
-    },
     {
       "date": "2026-05-04",
       "time": "03:59:23",
@@ -783,10 +770,23 @@
       "lesson": "ADAUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-14",
+      "time": "00:24:59",
+      "symbol": "SOLUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "SOLUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-13T18:12:39.899Z",
+  "lastUpdated": "2026-05-14T00:25:03.059Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
