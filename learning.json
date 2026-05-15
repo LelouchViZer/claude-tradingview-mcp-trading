@@ -1,9 +1,9 @@
 {
-  "totalTrades": 72,
-  "wins": 20,
+  "totalTrades": 73,
+  "wins": 21,
   "losses": 52,
-  "winRate": 27.8,
-  "totalPnlUSD": -15.94,
+  "winRate": 28.8,
+  "totalPnlUSD": -15.46,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -39,9 +39,9 @@
       "winRate": 25
     },
     "XAUTUSDT": {
-      "wins": 0,
+      "wins": 1,
       "losses": 1,
-      "winRate": 0
+      "winRate": 50
     },
     "DOGEUSDT": {
       "wins": 0,
@@ -134,19 +134,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-05",
-      "time": "00:55:37",
-      "symbol": "BNBUSDT",
-      "outcome": "EARLY_EXIT_PROFIT",
-      "regime": "standard",
-      "volumeAtEntry": "exhaustion",
-      "entryRSI": 79.74,
-      "pnlPct": "0.63",
-      "lesson": "BNBUSDT: Early exit captured only 4% of TP potential (0.6% vs 15.0% target) — exited too early",
-      "adaptation": "Stricter early exit: requires 2-scan confirmation + RSI reversal — already applied",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-05",
       "time": "01:26:43",
@@ -783,10 +770,23 @@
       "lesson": "BNBUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-15",
+      "time": "01:14:14",
+      "symbol": "XAUTUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "XAUTUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on XAUTUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-14T03:00:16.937Z",
+  "lastUpdated": "2026-05-15T01:14:18.168Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
