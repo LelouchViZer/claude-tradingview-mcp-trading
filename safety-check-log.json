@@ -3853,7 +3853,14 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 2255.31,
+      "closedAt": "2026-05-14T03:00:13.271Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-14T01:12:02.062Z",
@@ -3878,7 +3885,64 @@
         }
       ],
       "allPass": true,
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 672.061,
+      "closedAt": "2026-05-14T03:00:16.596Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-0.20",
+      "pnlUSD": "-0.02",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-15T00:27:55.153Z",
+      "symbol": "BTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 81425.3,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 81181,
+      "takeProfit": 81913.9,
+      "quantity": 0.0012281195156787878,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778804875153",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=69.3, 3/5 bull candles, vol 1.7x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
       "bias": "buy"
+    },
+    {
+      "timestamp": "2026-05-15T00:59:11.024Z",
+      "symbol": "XAUTUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 4646.15,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 4660.09,
+      "takeProfit": 4618.27,
+      "quantity": 0.02152319662516277,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778806751024",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=49.2, 4/5 bear candles, vol 3.4x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
     }
   ]
 }
