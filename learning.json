@@ -1,9 +1,9 @@
 {
-  "totalTrades": 73,
+  "totalTrades": 75,
   "wins": 21,
-  "losses": 52,
-  "winRate": 28.8,
-  "totalPnlUSD": -15.46,
+  "losses": 54,
+  "winRate": 28,
+  "totalPnlUSD": -16.3,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -15,8 +15,8 @@
     },
     "BTCUSDT": {
       "wins": 1,
-      "losses": 2,
-      "winRate": 33.3
+      "losses": 3,
+      "winRate": 25
     },
     "BNBUSDT": {
       "wins": 4,
@@ -70,7 +70,7 @@
     },
     "ETHUSDT": {
       "wins": 0,
-      "losses": 4,
+      "losses": 5,
       "winRate": 0
     },
     "TRXUSDT": {
@@ -101,7 +101,7 @@
       "cooldownUntil": null
     },
     "BTCUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "LINKUSDT": {
@@ -117,7 +117,7 @@
       "cooldownUntil": null
     },
     "ETHUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "TRXUSDT": {
@@ -134,32 +134,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-05",
-      "time": "01:26:43",
-      "symbol": "ATOMUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "exhaustion",
-      "entryRSI": 33.07,
-      "pnlPct": "-0.60",
-      "lesson": "ATOMUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ ATOMUSDT on 3hr cooldown (2 consecutive losses)",
-      "severity": "warning"
-    },
-    {
-      "date": "2026-05-05",
-      "time": "01:26:46",
-      "symbol": "BTCUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "unknown",
-      "entryRSI": null,
-      "pnlPct": "-4.20",
-      "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-05",
       "time": "01:42:17",
@@ -783,10 +757,36 @@
       "lesson": "XAUTUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
       "adaptation": "Reinforce: standard entries work well on XAUTUSDT",
       "severity": "info"
+    },
+    {
+      "date": "2026-05-15",
+      "time": "02:00:55",
+      "symbol": "BTCUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "BTCUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
+    },
+    {
+      "date": "2026-05-15",
+      "time": "02:00:58",
+      "symbol": "ETHUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "ETHUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-15T01:14:18.168Z",
+  "lastUpdated": "2026-05-15T02:00:59.254Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -947,7 +947,7 @@
       "type": "oversold"
     }
   ],
-  "lastDailySummaryDate": "2026-05-15",
+  "lastDailySummaryDate": "2026-05-16",
   "rulesLearnedFromLosses": [
     {
       "rule": "MIN_LTF_CONFIRMATION",
