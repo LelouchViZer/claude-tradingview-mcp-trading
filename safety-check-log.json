@@ -4013,7 +4013,66 @@
         }
       ],
       "allPass": true,
-      "bias": "buy"
+      "bias": "buy",
+      "outcome": "LOSS",
+      "exitPrice": 1.54854,
+      "closedAt": "2026-05-16T00:30:40.531Z",
+      "feesUSD": 0.12,
+      "pnlPct": "-4.20",
+      "pnlUSD": "-0.42",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-16T01:02:17.787Z",
+      "symbol": "XAUTUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 4540.81,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 4527.19,
+      "takeProfit": 4568.05,
+      "quantity": 0.022022502593149678,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778893337787",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=68.1, 3/5 bull candles, vol 4.4x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy",
+      "_earlyExitWarnings": 1
+    },
+    {
+      "timestamp": "2026-05-16T03:06:36.314Z",
+      "symbol": "AVAXUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 9.522,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 9.55057,
+      "takeProfit": 9.46487,
+      "quantity": 10.501995379122032,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778900796314",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=60.0, 3/5 bear candles, vol 3.6x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell",
+      "_earlyExitWarnings": 0
     }
   ]
 }
