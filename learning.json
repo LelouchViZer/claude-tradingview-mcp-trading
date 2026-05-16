@@ -1,9 +1,9 @@
 {
-  "totalTrades": 75,
+  "totalTrades": 76,
   "wins": 21,
-  "losses": 54,
-  "winRate": 28,
-  "totalPnlUSD": -16.3,
+  "losses": 55,
+  "winRate": 27.6,
+  "totalPnlUSD": -16.72,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -55,8 +55,8 @@
     },
     "NEARUSDT": {
       "wins": 2,
-      "losses": 1,
-      "winRate": 66.7
+      "losses": 2,
+      "winRate": 50
     },
     "ADAUSDT": {
       "wins": 2,
@@ -125,7 +125,7 @@
       "cooldownUntil": null
     },
     "NEARUSDT": {
-      "consecutiveLosses": 0,
+      "consecutiveLosses": 1,
       "cooldownUntil": null
     },
     "AVAXUSDT": {
@@ -134,19 +134,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-05",
-      "time": "01:42:17",
-      "symbol": "LINKUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "unknown",
-      "entryRSI": null,
-      "pnlPct": "-4.20",
-      "lesson": "LINKUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-05",
       "time": "06:52:27",
@@ -783,10 +770,23 @@
       "lesson": "ETHUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-16",
+      "time": "00:30:40",
+      "symbol": "NEARUSDT",
+      "outcome": "LOSS",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "-4.20",
+      "lesson": "NEARUSDT: Momentum trade failed — setup broke down after entry",
+      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
+      "severity": "warning"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-15T02:00:59.254Z",
+  "lastUpdated": "2026-05-16T00:30:43.363Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
@@ -944,6 +944,12 @@
       "date": "2026-05-15",
       "time": "00:12:02",
       "coinsOversold": 5,
+      "type": "oversold"
+    },
+    {
+      "date": "2026-05-16",
+      "time": "04:08:17",
+      "coinsOversold": 8,
       "type": "oversold"
     }
   ],
