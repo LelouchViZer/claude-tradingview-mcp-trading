@@ -4046,7 +4046,15 @@
       ],
       "allPass": true,
       "bias": "buy",
-      "_earlyExitWarnings": 1
+      "_earlyExitWarnings": 2,
+      "outcome": "EARLY_EXIT_LOSS",
+      "exitPrice": 4537.57,
+      "closedAt": "2026-05-16T04:39:18.860Z",
+      "exitReason": "Setup invalidated — price below VWAP+EMA20, RSI(3)=0.0 (confirmed 2 scans)",
+      "feesUSD": 0.12,
+      "pnlPct": "-1.91",
+      "pnlUSD": "-0.19",
+      "_lessonRecorded": true
     },
     {
       "timestamp": "2026-05-16T03:06:36.314Z",
@@ -4072,7 +4080,64 @@
       ],
       "allPass": true,
       "bias": "sell",
-      "_earlyExitWarnings": 0
+      "_earlyExitWarnings": 0,
+      "outcome": "WIN",
+      "exitPrice": 9.46487,
+      "closedAt": "2026-05-16T04:39:15.216Z",
+      "feesUSD": 0.12,
+      "pnlPct": "4.80",
+      "pnlUSD": "0.48",
+      "_lessonRecorded": true
+    },
+    {
+      "timestamp": "2026-05-17T00:18:40.795Z",
+      "symbol": "LTCUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 56.08,
+      "side": "sell",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 56.2482,
+      "takeProfit": 55.7435,
+      "quantity": 1.783166904422254,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778977120795",
+      "paperTrading": true,
+      "scalpReason": "5m momentum SHORT — EMA8<EMA21, RSI(3)=30.0, 3/5 bear candles, vol 3.2x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "sell"
+    },
+    {
+      "timestamp": "2026-05-17T01:05:23.616Z",
+      "symbol": "TRXUSDT",
+      "timeframe": "5m",
+      "isScalp": true,
+      "price": 0.35499,
+      "side": "buy",
+      "tradeSize": 10,
+      "leverage": 10,
+      "stopLoss": 0.353925,
+      "takeProfit": 0.35712,
+      "quantity": 281.6980760021409,
+      "orderPlaced": true,
+      "orderId": "SCALP-1778979923616",
+      "paperTrading": true,
+      "scalpReason": "5m momentum LONG — EMA8>EMA21, RSI(3)=64.7, 3/5 bull candles, vol 4.0x avg",
+      "conditions": [
+        {
+          "label": "Scalp signal",
+          "pass": true
+        }
+      ],
+      "allPass": true,
+      "bias": "buy"
     }
   ]
 }
