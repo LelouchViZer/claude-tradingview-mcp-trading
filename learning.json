@@ -1,9 +1,9 @@
 {
-  "totalTrades": 79,
-  "wins": 22,
+  "totalTrades": 80,
+  "wins": 23,
   "losses": 57,
-  "winRate": 27.8,
-  "totalPnlUSD": -16.85,
+  "winRate": 28.7,
+  "totalPnlUSD": -16.37,
   "rsiEntryThreshold": 35,
   "vwapProximityPct": 2,
   "entryTF": "15m",
@@ -49,9 +49,9 @@
       "winRate": 0
     },
     "LTCUSDT": {
-      "wins": 0,
+      "wins": 1,
       "losses": 4,
-      "winRate": 0
+      "winRate": 20
     },
     "NEARUSDT": {
       "wins": 2,
@@ -138,19 +138,6 @@
     }
   },
   "tradeLessons": [
-    {
-      "date": "2026-05-06",
-      "time": "02:01:09",
-      "symbol": "DOGEUSDT",
-      "outcome": "LOSS",
-      "regime": "standard",
-      "volumeAtEntry": "unknown",
-      "entryRSI": null,
-      "pnlPct": "-4.20",
-      "lesson": "DOGEUSDT: Momentum trade failed — setup broke down after entry",
-      "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol | ⏸️ DOGEUSDT on 3hr cooldown (2 consecutive losses)",
-      "severity": "warning"
-    },
     {
       "date": "2026-05-06",
       "time": "04:36:23",
@@ -787,10 +774,23 @@
       "lesson": "TRXUSDT: Momentum trade failed — setup broke down after entry",
       "adaptation": "Review EMA alignment and volume at entry before next trade on this symbol",
       "severity": "warning"
+    },
+    {
+      "date": "2026-05-17",
+      "time": "01:36:03",
+      "symbol": "LTCUSDT",
+      "outcome": "WIN",
+      "regime": "standard",
+      "volumeAtEntry": "unknown",
+      "entryRSI": null,
+      "pnlPct": "4.80",
+      "lesson": "LTCUSDT: ✅ Full TP hit +6.0% — standard setup worked perfectly",
+      "adaptation": "Reinforce: standard entries work well on LTCUSDT",
+      "severity": "info"
     }
   ],
   "extremeBounceMinStreak": 3,
-  "lastUpdated": "2026-05-17T01:20:30.280Z",
+  "lastUpdated": "2026-05-17T01:36:06.270Z",
   "notes": [
     "=== PATTERN ANALYSIS (updated 2026-05-02) ===",
     "",
